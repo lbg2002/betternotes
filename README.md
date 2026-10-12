@@ -145,7 +145,8 @@ PinPlan Notes is a small, local-first sticky notes and checklist application for
 - **Sticky notes:** rich text, optional compact toolbar, colors, tags, full-text search, trash and automatic saving.
 - **Checklists:** click text to edit, drag it to reorder, mark completed tasks with strikethrough and muted background, hide completed tasks, delete entries and save automatically. Right-click for optional due dates.
 - **Desktop:** individual always-on-top windows through the original XWayland/X11 implementation.
-- **Typography:** live font-family and font-size (10–32px) preferences for notes, checklists and previews, with system-default reset.\n- **Localization:** Simplified Chinese, English, or system language.
+- **Typography:** live font-family and font-size (10–32px) preferences for notes, checklists and previews, with system-default reset.
+- **Localization:** Simplified Chinese, English, or system language.
 - **Templates & backups:** daily/weekly/study presets, local JSON export and additive import.
 - **Reminders:** notifications for due/overdue tasks while the app is running (no resident daemon).
 - **Privacy:** SQLite local storage, no account or network requirement.
