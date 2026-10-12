@@ -50,6 +50,20 @@ jobs:
         with:
           name: betternotes-lite-deb
           path: '*.deb'
+      - name: Publish experimental prerelease after successful branch build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/zh-cn-compact-lightweight'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.2-cn1-pre
+          target_commitish: ${{ github.sha }}
+          name: BetterNotes CN Lite 0.1.2-cn1 (experimental)
+          prerelease: true
+          draft: false
+          files: '*.deb'
+          body: |
+            Experimental Chinese UI and compact notes build. CI compilation and
+            packaging passed; GNOME 50 / Ubuntu 26.04 graphical testing has not
+            yet been completed. Backup Snap data before trying this package.
       - name: Create GitHub release on tagged builds
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
