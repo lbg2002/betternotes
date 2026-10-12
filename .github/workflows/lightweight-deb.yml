@@ -46,7 +46,6 @@ jobs:
           Architecture: all
           Maintainer: Community Fork <noreply@github.com>
           Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-gdkpixbuf-2.0
-          Conflicts: betternotes
           Description: PinPlan lightweight bilingual sticky notes and checklists
            GTK4 and Libadwaita sticky notes using distribution shared libraries.
           CONTROL
