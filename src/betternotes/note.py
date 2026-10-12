@@ -15,6 +15,7 @@ class Note:
     updated_at: str
     trashed_at: Optional[str] = None
     tags: list[str] = field(default_factory=list)
+    kind: str = 'note'
 
     @property
     def is_trashed(self) -> bool:
@@ -23,6 +24,9 @@ class Note:
     @property
     def preview_text(self) -> str:
         """Extract plain text preview from rich-text JSON content."""
+        if self.kind == 'plan':
+            from betternotes.plan import parse_items, preview_items
+            return preview_items(parse_items(self.content))[:200]
         if not self.content:
             return ''
         try:
