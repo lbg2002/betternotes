@@ -351,18 +351,22 @@
 .color-teal { background-color: #80CBC4; }
 
 /* PinPlan checklist: one text control, one deletion control. */
-.plan-heading {
-    padding: 4px 12px 6px;
+.plan-footer {
+    padding: 8px 12px 12px;
+}
+.plan-footer-summary {
+    padding: 0 3px;
+    min-height: 28px;
 }
 .plan-progress {
     font-size: 12px;
     opacity: 0.78;
 }
 .plan-fold {
-    font-size: 11px;
-    min-height: 24px;
-    padding: 2px 6px;
-    border-radius: 9px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 4px;
+    border-radius: 10px;
 }
 .plan-items {
     padding: 4px 10px 70px 10px;
@@ -452,7 +456,7 @@ window.pinplan-compact-window > contents {
 .pinplan-mini-red { background: #ffc2c1; }
 .pinplan-mini-teal { background: #b4e9e2; }
 .plan-completion-progress {
-    margin: 0 14px 8px;
+    margin: 0 4px 3px;
     min-height: 5px;
 }
 .plan-completion-progress trough,

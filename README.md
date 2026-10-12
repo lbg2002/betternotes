@@ -4,7 +4,7 @@
 
 **把想法贴在桌面，把计划逐项完成。**
 
-**v0.4.1 更新：** 普通便签与计划都可点击标题栏颜色图标旁的折叠按钮，缩成始终置顶、可拖动的小圆球或圆角长条；点击可展开。首选项可选折叠形状。计划新增完成进度条、Enter 连续录入、撤销删除。\n\n**v0.4 更新：在主界面「首选项 → 字体与字号」中选择电脑已安装的字体、调整 10–32 px 字号，普通便签、计划清单及预览会实时同步，支持恢复系统默认。**
+**v0.4.2 正式版更新：** 计划任务紧随标题显示；“已完成 x/y”、进度条和折叠完成项图标移到窗口底部。点击浮动小球或长条展开时，窗口尽量在**浮动窗所在显示器及当前位置附近**恢复，靠近边缘会自动约束位置。DEB 正式更名为 `pinplan-notes`，升级保留现有数据。\n\n**v0.4.1 更新：** 普通便签与计划都可点击标题栏颜色图标旁的折叠按钮，缩成始终置顶、可拖动的小圆球或圆角长条；点击可展开。首选项可选折叠形状。计划新增完成进度条、Enter 连续录入、撤销删除。\n\n**v0.4 更新：在主界面「首选项 → 字体与字号」中选择电脑已安装的字体、调整 10–32 px 字号，普通便签、计划清单及预览会实时同步，支持恢复系统默认。**
 
 v0.3 的极简计划、拖拽排序、完成项折叠、模板、到期提醒和备份功能全部保留。
 
@@ -43,7 +43,7 @@ v0.3 的极简计划、拖拽排序、完成项折叠、模板、到期提醒和
 | 完成项浅灰背景、可折叠已完成 | — | ✅ |
 | 点击文字编辑、失焦/回车完成输入 | — | ✅ |
 | 截止日期、软件运行时的到期提醒 | — | ✅ |
-| 已完成数量 / 总数与进度条 | — | ✅ |
+| 底部已完成数量、进度条及图标折叠 | — | ✅ |
 | Enter 连续创建下一条任务 | — | ✅ |
 | 删除单条任务后撤销（20 步） | — | ✅ |
 
@@ -55,15 +55,15 @@ v0.3 的极简计划、拖拽排序、完成项折叠、模板、到期提醒和
 
 ### 1. 下载与安装
 
-前往 [GitHub Releases](https://github.com/lbg2002/betternotes/releases)，下载最新版的 `betternotes-lite_*.deb`（适合 Ubuntu/Debian 的轻量包），然后运行：
+前往 [GitHub Releases](https://github.com/lbg2002/betternotes/releases)，下载最新稳定版的 `pinplan-notes_*.deb`（适合 Ubuntu/Debian 的轻量包），然后运行：
 
 ```bash
-sudo apt install ./betternotes-lite_*.deb
+sudo apt install ./pinplan-notes_*.deb
 ```
 
 从应用菜单搜索 **PinPlan Notes / 轻笺** 启动。
 
-该 DEB **不捆绑 Python、GTK4、Libadwaita 运行库**，由 apt 按需使用系统依赖。因此 DEB 很小，**不代表装完依赖后只占几十 KB**。Ubuntu 26.04 / GNOME 50 建议先备份旧便签后升级。
+v0.4.2 起 Debian 软件包名为 **`pinplan-notes`**，对之前的 `betternotes-lite` DEB 声明冲突和替换关系；通过 apt 安装时会替换旧版程序文件，原有便签数据仍保留。不需要先卸载旧版；为稳妥起见，建议先导出 JSON 备份。Snap 用户的数据目录可能不同，不会自动迁移。\n\n该 DEB **不捆绑 Python、GTK4、Libadwaita 运行库**，由 apt 按需使用系统依赖。因此 DEB 很小，**不代表装完依赖后只占几十 KB**。Ubuntu 26.04 / GNOME 50 建议先备份旧便签后升级。
 
 ### 2. 普通便签模式
 
@@ -76,18 +76,18 @@ sudo apt install ./betternotes-lite_*.deb
 1. 点击右下角圆形 **+** 输入一条待办；**输入文字后按 Enter 会立即新增下一条**，点击空白处则只结束编辑。空白任务按 Enter / 失焦会自动取消。
 2. 勾选条目前的复选框：标记完成、显示删除线；再点一次恢复未完成。
 3. 直接**点击文字编辑**，按住文字**拖动到另一条任务上**即可调整顺序；仅保留红色删除图标。右键点击任务文字可以设定或清除截止日期。
-4. 顶部显示「已完成 x/y」与细进度条，并提供**收起已完成**按钮；已勾选项目会划线并显示灰色背景。内容、顺序及日期自动保存到本地。
+4. 底部显示「已完成 x/y」与细进度条，右侧有**眼睛图标**可以收起/展开已完成任务；已勾选项目会划线并显示灰色背景。内容、顺序及日期自动保存到本地。
 5. 可像普通便签一样修改颜色、标签和标题，窗口置顶行为保持一致。
 
 **说明**：删除单条任务可使用进度条旁出现的「撤销」按钮恢复，支持本次窗口会话最近 20 次删除（包括原顺序与截止日期）；关闭窗口后不保留单条任务的撤销历史。仍建议定期导出备份。到期提醒只在 PinPlan 正在运行时检查，默认每 15 分钟一次；关闭应用不会保留后台提醒服务。
 
-### 4. 折叠小球 / 圆角长条（v0.4.1）
+### 4. 折叠小球 / 圆角长条（v0.4.2）
 
 每张普通便签和计划窗口标题栏左上方的**调色板右侧**增加收起按钮。点击即可变成一个独立、紧凑的小窗：
 
 - 默认**小圆球**（约 58 × 58 px）；也可在**主界面 → 首选项 → 外观 → 折叠外观**选**圆角长条**（约 188 × 46 px，显示标题）。
 - **点击**小球/长条可恢复原便签编辑窗口；**拖动**可放到屏幕角落。每张便签都可以独立收起，普通便签和计划一致。
-- 收起前自动保存编辑内容；原编辑窗口保持在内存，展开时保留文本、滚动状态等。原有 XWayland 置顶逻辑继续用于浮动窗。
+- 收起前自动保存编辑内容；原编辑窗口保持在内存，展开时保留文本、滚动状态等。原有 XWayland 置顶逻辑继续用于浮动窗。展开时会读取**浮动窗拖动后的实际位置**，在对应显示器附近恢复原尺寸，并尽量避免超出边界；若窗口管理器不允许指定位置，则安全回退为其默认布局。
 - 形状选择是**全局偏好**，在下次收起时生效。关闭或退出程序后不会自动恢复收起状态；需重新打开便签。Windows 及不同 Linux 桌面环境的表现可能不同。
 - 圆形视觉效果需要桌面合成器支持透明窗口；GNOME/XWayland 实际圆角和跨屏移动体验建议自行验证。
 
@@ -157,15 +157,15 @@ PinPlan Notes is a small, local-first sticky notes and checklist application for
 
 - **Sticky notes:** rich text, optional compact toolbar, colors, tags, full-text search, trash and automatic saving.
 - **Floating compact notes:** Collapse ordinary notes and plans into draggable always-on-top circles or rounded pills, click to restore. Choose shape in Preferences.
-- **Checklists:** click text to edit, drag to reorder, track progress, press Enter to add the next task, undo recent deletions, fold completed items and autosave. Right-click for optional due dates.
-- **Desktop:** individual always-on-top windows through the original XWayland/X11 implementation.
+- **Checklists:** tasks begin immediately under the title; completion count, progress and the icon-only completed-item toggle sit in the bottom footer. Click to edit, drag to reorder, press Enter for the next task, and undo deletion. Right-click for optional due dates.
+- **Desktop:** individual always-on-top windows through XWayland/X11, with minimized handles expanding near their current on-screen position (including secondary monitors).
 - **Typography:** live font-family and font-size (10–32px) preferences for notes, checklists and previews, with system-default reset.
 - **Localization:** Simplified Chinese, English, or system language.
 - **Templates & backups:** daily/weekly/study presets, local JSON export and additive import.
 - **Reminders:** notifications for due/overdue tasks while the app is running (no resident daemon).
 - **Privacy:** SQLite local storage, no account or network requirement.
 
-Download the Debian package from [Releases](https://github.com/lbg2002/betternotes/releases) and install with `sudo apt install ./betternotes-lite_*.deb`. Use **+** to choose a sticky note or a checklist. Existing Snap installs may have separate storage; back up your notes before migrating.
+Download the Debian package from [Releases](https://github.com/lbg2002/betternotes/releases) and install with `sudo apt install ./pinplan-notes_*.deb`. Use **+** to choose a sticky note or a checklist. Existing Snap installs may have separate storage; back up your notes before migrating.
 
 ## 维护、反馈与致谢
 

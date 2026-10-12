@@ -1,7 +1,7 @@
 name: PinPlan lightweight DEB CI
 on:
   push:
-    branches: [main, feature/pinplan-v041-compact-float]
+    branches: [main, feature/pinplan-v042-layout-restore-position]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -38,39 +38,56 @@ jobs:
         run: |
           mkdir -p pkg/DEBIAN
           cat > pkg/DEBIAN/control <<'CONTROL'
-          Package: betternotes-lite
-          Version: 0.4.1+cn5
+          Package: pinplan-notes
+          Version: 0.4.2
+          Provides: betternotes-lite
+          Conflicts: betternotes-lite, betternotes
+          Replaces: betternotes-lite, betternotes
           Architecture: all
           Maintainer: Community Fork <noreply@github.com>
           Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-gdkpixbuf-2.0
-          Conflicts: betternotes
           Description: PinPlan lightweight bilingual sticky notes and checklists
            GTK4 and Libadwaita sticky notes using distribution shared libraries.
           CONTROL
           # Do not ship redundant Python bytecode, caches or dev artefacts.
           find pkg/usr -type d -name __pycache__ -prune -exec rm -rf {} +
           find pkg/usr -type f -name '*.pyc' -delete
-          dpkg-deb --build --root-owner-group pkg betternotes-lite_0.4.1+cn5_all.deb
-          dpkg-deb --info betternotes-lite_0.4.1+cn5_all.deb
+          dpkg-deb --build --root-owner-group pkg pinplan-notes_0.4.2_all.deb
+          dpkg-deb --info pinplan-notes_0.4.2_all.deb
           ls -lh *.deb
       - uses: actions/upload-artifact@v4
         with:
           name: betternotes-lite-deb
           path: '*.deb'
       - name: Publish experimental prerelease after successful branch build
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/pinplan-v041-compact-float') || (github.event_name == 'pull_request' && github.head_ref == 'feature/pinplan-v041-compact-float')
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/pinplan-v042-layout-restore-position') || (github.event_name == 'pull_request' && github.head_ref == 'feature/pinplan-v042-layout-restore-position')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.4.1-cn5-rc1
+          tag_name: v0.4.2-rc1
           target_commitish: ${{ github.event.pull_request.head.sha || github.sha }}
-          name: PinPlan Notes v0.4.1 (release candidate)
+          name: PinPlan Notes v0.4.2 (release candidate)
           prerelease: true
           draft: false
           files: '*.deb'
           body: |
-            Experimental draggable circle / pill floating handles, progress bar, Enter continuation and delete undo. CI compilation and
+            Candidate with plan footer layout and monitor-aware restoration. Renamed package pinplan-notes replaces betternotes-lite. CI compilation and
             packaging passed; GNOME 50 / Ubuntu 26.04 graphical testing has not
             yet been completed. Backup Snap data before trying this package.
+      - name: Publish official stable release after main branch CI
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.4.2
+          target_commitish: ${{ github.sha }}
+          name: PinPlan Notes v0.4.2
+          prerelease: false
+          draft: false
+          files: 'pinplan-notes_0.4.2_all.deb'
+          body: |
+            PinPlan Notes 0.4.2 — first official renamed Debian package.
+            Improved plan footer and icon-only fold; dual-monitor XWayland
+            restore near the current compact handle. Replaces old betternotes-lite.
+            Existing user SQLite data and app ID remain unchanged.
       - name: Create GitHub release on tagged builds
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
