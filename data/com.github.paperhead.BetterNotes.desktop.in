@@ -1,10 +1,13 @@
 [Desktop Entry]
-Name=BetterNotes
-Comment=Sticky notes for your desktop
+Name=PinPlan Notes
+Name[zh_CN]=轻笺 · PinPlan
+Comment=Sticky notes and checklists for your desktop
+Comment[zh_CN]=桌面便签与计划清单
 Exec=betternotes
 Icon=com.github.paperhead.BetterNotes
 Terminal=false
 Type=Application
 Categories=Utility;GTK;
-Keywords=notes;sticky;memo;
+Keywords=notes;sticky;memo;checklist;todo;plan;
+Keywords[zh_CN]=便签;便利贴;计划;清单;待办;
 StartupNotify=true
