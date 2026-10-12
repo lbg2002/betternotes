@@ -18,7 +18,7 @@ from betternotes.rich_text_serializer import (
 )
 from betternotes.rich_text_toolbar import RichTextToolbar
 from betternotes.plan import new_item, parse_items, serialize_items
-from betternotes.x11_position import restore_position, get_window_geometry, move_window
+from betternotes.x11_position import restore_position, get_window_geometry, move_window, move_window_direct
 
 
 
@@ -248,19 +248,22 @@ xlib.XCloseDisplay(dpy)
         if compact is None or self._restoring_compact:
             return
         self._restoring_compact = True
-        # The compact handle must stay mapped until its live X11 position is
-        # read and the original editor has a fresh mapped XID.
+        # Mutter knows where this still-mapped handle is. Temporary transient
+        # parenting gives it a placement hint even if EWMH is blocked.
+        self.set_transient_for(compact)
         self.present()
-        GLib.timeout_add(120, self._finish_restore_near_handle, compact, 0)
+        GLib.timeout_add(180, self._finish_restore_near_handle, compact, 0)
 
     def _finish_restore_near_handle(self, compact, attempt):
         if self._compact_window is not compact:
+            self._restoring_compact = False
             return GLib.SOURCE_REMOVE
         surface = self.get_surface()
         handle_surface = compact.get_surface()
         handle = get_window_geometry(handle_surface) if handle_surface else None
-        if (surface is None or handle is None) and attempt < 8:
-            GLib.timeout_add(100, self._finish_restore_near_handle, compact, attempt + 1)
+        if (surface is None or handle is None) and attempt < 10:
+            GLib.timeout_add(100, self._finish_restore_near_handle,
+                             compact, attempt + 1)
             return GLib.SOURCE_REMOVE
 
         if surface is not None and handle is not None:
@@ -273,18 +276,50 @@ xlib.XCloseDisplay(dpy)
                     monitors.append((geo.x, geo.y, geo.width, geo.height))
             size = self._expanded_size or (440, 500)
             x, y = restore_position(handle, size, monitors)
+            # EWMH is applied by the window manager asynchronously.
             move_window(surface, x, y)
+            GLib.timeout_add(250, self._verify_restore_position,
+                             compact, (x, y), 0)
+        else:
+            # A native Wayland window cannot be positioned by an application.
+            self._finish_compact_restore(compact)
+        return GLib.SOURCE_REMOVE
 
-        # Native Wayland does not support programmatic toplevel positioning.
-        # In that case safely restore without losing the note window.
+    def _verify_restore_position(self, compact, target, attempt):
+        if self._compact_window is not compact:
+            return GLib.SOURCE_REMOVE
+        surface = self.get_surface()
+        actual = get_window_geometry(surface) if surface else None
+        if actual is not None:
+            if abs(actual[0] - target[0]) <= 32 and abs(actual[1] - target[1]) <= 32:
+                self._finish_compact_restore(compact)
+                return GLib.SOURCE_REMOVE
+
+        if surface is not None and attempt < 3:
+            # Mutter may move a just-remapped window again. First retry the
+            # EWMH request, then use plain XMoveWindow as a last resort.
+            if attempt < 2:
+                move_window(surface, *target)
+            else:
+                move_window_direct(surface, *target)
+            GLib.timeout_add(250, self._verify_restore_position,
+                             compact, target, attempt + 1)
+        else:
+            self._finish_compact_restore(compact)
+        return GLib.SOURCE_REMOVE
+
+    def _finish_compact_restore(self, compact):
+        if self._compact_window is not compact:
+            self._restoring_compact = False
+            return
         self._compact_window = None
         self._compact_closing = True
         try:
+            self.set_transient_for(None)
             compact.close()
         finally:
             self._compact_closing = False
             self._restoring_compact = False
-        return GLib.SOURCE_REMOVE
 
     def _build_ui(self):
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
