@@ -1,7 +1,7 @@
 name: PinPlan lightweight DEB CI
 on:
   push:
-    branches: [main, feature/pinplan-compact-plan-v03]
+    branches: [main, feature/pinplan-font-settings-v04]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -26,7 +26,8 @@ jobs:
       - name: GTK UI smoke test (Xvfb)
         run: |
           DATA_HOME="$(mktemp -d)"
-          XDG_DATA_HOME="$DATA_HOME" GDK_BACKEND=x11 PYTHONPATH=src xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/smoke_ui.py
+          glib-compile-schemas data/
+          GSETTINGS_SCHEMA_DIR="$PWD/data" GSETTINGS_BACKEND=memory XDG_DATA_HOME="$DATA_HOME" GDK_BACKEND=x11 PYTHONPATH=src xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/smoke_ui.py
           rm -rf "$DATA_HOME"
       - name: Install into package root
         run: |
@@ -38,7 +39,7 @@ jobs:
           mkdir -p pkg/DEBIAN
           cat > pkg/DEBIAN/control <<'CONTROL'
           Package: betternotes-lite
-          Version: 0.3.0+cn3
+          Version: 0.4.0+cn4
           Architecture: all
           Maintainer: Community Fork <noreply@github.com>
           Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-gdkpixbuf-2.0
@@ -49,25 +50,25 @@ jobs:
           # Do not ship redundant Python bytecode, caches or dev artefacts.
           find pkg/usr -type d -name __pycache__ -prune -exec rm -rf {} +
           find pkg/usr -type f -name '*.pyc' -delete
-          dpkg-deb --build --root-owner-group pkg betternotes-lite_0.3.0+cn3_all.deb
-          dpkg-deb --info betternotes-lite_0.3.0+cn3_all.deb
+          dpkg-deb --build --root-owner-group pkg betternotes-lite_0.4.0+cn4_all.deb
+          dpkg-deb --info betternotes-lite_0.4.0+cn4_all.deb
           ls -lh *.deb
       - uses: actions/upload-artifact@v4
         with:
           name: betternotes-lite-deb
           path: '*.deb'
       - name: Publish experimental prerelease after successful branch build
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/pinplan-compact-plan-v03') || (github.event_name == 'pull_request' && github.head_ref == 'feature/pinplan-compact-plan-v03')
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/pinplan-font-settings-v04') || (github.event_name == 'pull_request' && github.head_ref == 'feature/pinplan-font-settings-v04')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.3.0-cn3-rc1
+          tag_name: v0.4.0-cn4-rc1
           target_commitish: ${{ github.event.pull_request.head.sha || github.sha }}
-          name: PinPlan Notes v0.3.0 (release candidate)
+          name: PinPlan Notes v0.4.0 (release candidate)
           prerelease: true
           draft: false
           files: '*.deb'
           body: |
-            Experimental compact drag-and-drop checklist, local backup, templates and reminders. CI compilation and
+            Experimental live global typography for notes, plans, and previews. CI compilation and
             packaging passed; GNOME 50 / Ubuntu 26.04 graphical testing has not
             yet been completed. Backup Snap data before trying this package.
       - name: Create GitHub release on tagged builds
