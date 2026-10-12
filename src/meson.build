@@ -23,6 +23,7 @@ betternotes_sources = files(
   'betternotes/shortcuts.py',
   'betternotes/preferences.py',
   'betternotes/i18n.py',
+  'betternotes/plan.py',
 )
 
 install_data(
