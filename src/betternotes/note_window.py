@@ -383,6 +383,8 @@ xlib.XCloseDisplay(dpy)
         self._plan_items = []
         self._plan_widgets = {}
         self._plan_undo_stack = []
+        self._plan_refresh_busy = False
+        self._plan_editing_uid = None
 
         footer_summary = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         footer_summary.add_css_class('plan-footer-summary')
@@ -492,6 +494,18 @@ xlib.XCloseDisplay(dpy)
         self._plan_refresh()
 
     def _plan_refresh(self):
+        if self._plan_refresh_busy:
+            return
+        self._plan_refresh_busy = True
+        try:
+            self._plan_editing_uid = None
+            self._plan_render_items()
+        finally:
+            self._plan_refresh_busy = False
+
+    def _plan_render_items(self):
+        # Focus-leave signals can fire while removing old GTK rows.
+        # The refresh guard prevents reentrant modification of the widget tree.
         child = self._plan_box.get_first_child()
         while child is not None:
             nxt = child.get_next_sibling()
@@ -633,50 +647,86 @@ xlib.XCloseDisplay(dpy)
             self._on_content_changed()
 
     def _plan_start_edit(self, button, uid):
+        # A Gtk.Button may still be dispatching a double-click. Do not hide
+        # its own widget during the clicked signal; defer it to the main loop.
+        GLib.idle_add(self._plan_activate_editor, uid)
+
+    def _plan_activate_editor(self, uid):
+        if self._plan_refresh_busy:
+            return GLib.SOURCE_REMOVE
         widgets = self._plan_widgets.get(uid)
-        if widgets:
-            label, entry = widgets
-            label.get_parent().set_visible(False)
-            entry.set_visible(True)
+        if not widgets:
+            return GLib.SOURCE_REMOVE
+        label, entry = widgets
+        if entry.get_visible():
             entry.grab_focus()
-            entry.select_region(-1, -1)
+            return GLib.SOURCE_REMOVE
+        # Finish the previous editor without destroying widgets in focus signals.
+        previous = self._plan_editing_uid
+        if previous and previous != uid:
+            self._plan_finish_edit(None, previous)
+        label.get_parent().set_visible(False)
+        entry.set_visible(True)
+        self._plan_editing_uid = uid
+        entry.grab_focus()
+        entry.select_region(-1, -1)
+        return GLib.SOURCE_REMOVE
 
     def _plan_enter(self, entry, uid):
-        # Empty draft terminates input; non-empty Enter continues with a
-        # fresh row. The regular focus-out handler still just commits.
         item = self._plan_find(uid)
         add_next = item is not None and bool(item['text'].strip())
         self._plan_finish_edit(entry, uid)
         if add_next:
+            # The current entry has stopped editing before the next is created.
             self._plan_add(None)
 
     def _plan_finish_edit(self, entry, uid):
+        if self._plan_refresh_busy:
+            return
         widgets = self._plan_widgets.get(uid)
         if not widgets:
             return
         label, field = widgets
         if not field.get_visible():
             return
+        # Disable the editor before focus changes can dispatch another leave.
+        field.set_visible(False)
+        label.get_parent().set_visible(True)
+        if self._plan_editing_uid == uid:
+            self._plan_editing_uid = None
         item = self._plan_find(uid)
-        # Empty draft rows disappear on Enter or clicking elsewhere.
         if item is not None and not item['text'].strip():
+            # Removing a Gtk.Entry directly from its own focus-out callback
+            # can cause GTK criticals/crashes. Drop the draft after dispatch.
+            GLib.idle_add(self._plan_remove_empty_draft, uid)
+        else:
+            self._on_content_changed()
+
+    def _plan_remove_empty_draft(self, uid):
+        if self._plan_refresh_busy:
+            return GLib.SOURCE_CONTINUE
+        item = self._plan_find(uid)
+        widgets = self._plan_widgets.get(uid)
+        if (item is not None and not item['text'].strip()
+                and (not widgets or not widgets[1].get_visible())):
             self._plan_items = [i for i in self._plan_items if i['id'] != uid]
             self._plan_refresh()
             self._on_content_changed()
-            return
-        field.set_visible(False)
-        label.get_parent().set_visible(True)
-        self._on_content_changed()
+        return GLib.SOURCE_REMOVE
 
     def _plan_add(self, button):
-        # Do not strand the previous editor when adding a second task.
+        # A repeated tap must not destroy a still-focused empty draft.
         for uid, (label, entry) in list(self._plan_widgets.items()):
             if entry.get_visible():
+                item = self._plan_find(uid)
+                if item is not None and not item['text'].strip():
+                    entry.grab_focus()
+                    return
                 self._plan_finish_edit(None, uid)
         item = new_item()
         self._plan_items.append(item)
         self._plan_refresh()
-        self._plan_start_edit(None, item['id'])
+        GLib.idle_add(self._plan_activate_editor, item['id'])
 
     def _plan_delete(self, button, uid):
         for index, item in enumerate(self._plan_items):
