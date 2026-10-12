@@ -102,6 +102,8 @@ ZH = {
   "Collapse to floating handle": "收起为浮动小球",
   "Click to expand · drag to move": "点击展开 · 拖动移动",
   "Undo deleted task": "撤销删除任务",
+  "Show completed": "显示已完成",
+  "Hide completed": "收起已完成",
   "Formatting": "文本格式"
 }
 
