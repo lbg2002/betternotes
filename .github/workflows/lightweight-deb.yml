@@ -1,0 +1,58 @@
+name: Lightweight DEB CI
+on:
+  push:
+    branches: [main, feature/zh-cn-compact-lightweight]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-gi python3-compileall libgtk-4-dev libadwaita-1-dev meson ninja-build gettext libglib2.0-dev-bin gir1.2-gtk-4.0 gir1.2-adw-1 dpkg-dev
+      - name: Validate Python and schema
+        run: |
+          python3 -m compileall -q src/betternotes
+          glib-compile-schemas --strict --dry-run data/
+      - name: Install into package root
+        run: |
+          meson setup build --prefix=/usr
+          meson compile -C build
+          DESTDIR="$PWD/pkg" meson install -C build --no-rebuild
+      - name: Build thin DEB
+        run: |
+          mkdir -p pkg/DEBIAN
+          cat > pkg/DEBIAN/control <<'CONTROL'
+          Package: betternotes-lite
+          Version: 0.1.2+cn1
+          Architecture: all
+          Maintainer: Community Fork <noreply@github.com>
+          Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-gdkpixbuf-2.0
+          Conflicts: betternotes
+          Description: Lightweight Chinese-enabled desktop sticky notes
+           GTK4 and Libadwaita sticky notes using distribution shared libraries.
+          CONTROL
+          # Do not ship redundant Python bytecode, caches or dev artefacts.
+          find pkg/usr -type d -name __pycache__ -prune -exec rm -rf {} +
+          find pkg/usr -type f -name '*.pyc' -delete
+          dpkg-deb --build --root-owner-group pkg betternotes-lite_0.1.2+cn1_all.deb
+          dpkg-deb --info betternotes-lite_0.1.2+cn1_all.deb
+          ls -lh *.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: betternotes-lite-deb
+          path: '*.deb'
+      - name: Create GitHub release on tagged builds
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: '*.deb'
+          generate_release_notes: true
