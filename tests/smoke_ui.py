@@ -3,6 +3,8 @@
 from betternotes.application import BetterNotesApp
 from betternotes.note_window import NoteWindow
 from betternotes.plan import parse_items
+from betternotes.preferences import PreferencesWindow
+from gi.repository import Pango
 
 app = BetterNotesApp()
 assert app.register(None), 'Unable to register GTK app'
@@ -46,6 +48,23 @@ legacy = app.store.create_note(title='Old note', kind='note')
 note_window = NoteWindow(application=app, note=legacy)
 assert hasattr(note_window, '_text_view')
 note_window._save_note()
+
+# Global typography changes should affect already-open editor windows.
+settings = app._get_settings()
+assert settings is not None, 'CI must expose compiled GSettings schema'
+prefs = PreferencesWindow()
+assert prefs._font_button.get_font_desc() is not None
+settings.set_int('font-size', 20)
+settings.set_string('font-family', 'Noto Sans CJK SC')
+assert settings.get_int('font-size') == 20
+assert settings.get_string('font-family') == 'Noto Sans CJK SC'
+prefs._font_button.set_font_desc(Pango.FontDescription.from_string('Sans'))
+assert settings.get_string('font-family') == 'Sans'
+prefs._on_reset_typography(None)
+assert settings.get_string('font-family') == ''
+assert settings.get_int('font-size') == 14
+prefs.close()
+
 note_window.close()
 window.close()
 app.store.close()
