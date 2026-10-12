@@ -13,6 +13,7 @@ from betternotes.i18n import _
 from betternotes.note_store import NoteStore
 from betternotes.main_window import MainWindow
 from betternotes.plan import new_item, serialize_items
+from betternotes.font_settings import make_font_css
 
 
 class BetterNotesApp(Adw.Application):
@@ -25,7 +26,7 @@ class BetterNotesApp(Adw.Application):
         'note-deleted': (GObject.SignalFlags.RUN_LAST, None, (str,)),
     }
 
-    def __init__(self, version='0.3.0', **kwargs):
+    def __init__(self, version='0.4.0', **kwargs):
         super().__init__(
             application_id=APP_ID,
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
@@ -40,6 +41,7 @@ class BetterNotesApp(Adw.Application):
         Adw.Application.do_startup(self)
         self.store = NoteStore()
         self._load_css()
+        self._setup_live_fonts()
         self._setup_actions()
         self._setup_shortcuts()
         # Lightweight reminder checks only while the application is running.
@@ -82,6 +84,30 @@ class BetterNotesApp(Adw.Application):
             css_provider,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
+
+    def _setup_live_fonts(self):
+        """One provider per app: updating it restyles *existing* note windows."""
+        self._font_provider = Gtk.CssProvider()
+        display = Gdk.Display.get_default()
+        if display is not None:
+            Gtk.StyleContext.add_provider_for_display(
+                display, self._font_provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+            )
+        self._font_settings = self._get_settings()
+        if self._font_settings:
+            self._font_settings.connect('changed::font-family', self._font_setting_changed)
+            self._font_settings.connect('changed::font-size', self._font_setting_changed)
+        self._apply_font_settings()
+
+    def _font_setting_changed(self, settings, key):
+        self._apply_font_settings()
+
+    def _apply_font_settings(self):
+        settings = getattr(self, '_font_settings', None)
+        family = settings.get_string('font-family') if settings else ''
+        size = settings.get_int('font-size') if settings else 14
+        self._font_provider.load_from_data(make_font_css(family, size).encode('utf-8'))
 
     def _setup_actions(self):
         actions = [
