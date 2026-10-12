@@ -51,11 +51,11 @@ jobs:
           name: betternotes-lite-deb
           path: '*.deb'
       - name: Publish experimental prerelease after successful branch build
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/zh-cn-compact-lightweight'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/zh-cn-compact-lightweight') || (github.event_name == 'pull_request' && github.head_ref == 'feature/zh-cn-compact-lightweight')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.1.2-cn1-pre
-          target_commitish: ${{ github.sha }}
+          target_commitish: ${{ github.event.pull_request.head.sha || github.sha }}
           name: BetterNotes CN Lite 0.1.2-cn1 (experimental)
           prerelease: true
           draft: false
