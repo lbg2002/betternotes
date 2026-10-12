@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import os
+from datetime import date
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -33,6 +34,7 @@ class BetterNotesApp(Adw.Application):
         self.version = version
         self.store = None
         self._note_windows = {}
+        self._reminded_this_session = set()
 
     def do_startup(self):
         Adw.Application.do_startup(self)
@@ -40,6 +42,9 @@ class BetterNotesApp(Adw.Application):
         self._load_css()
         self._setup_actions()
         self._setup_shortcuts()
+        # Lightweight reminder checks only while the application is running.
+        GLib.timeout_add_seconds(10, self._check_due_tasks)
+        GLib.timeout_add_seconds(900, self._check_due_tasks)
 
     def _load_css(self):
         css_provider = Gtk.CssProvider()
@@ -231,6 +236,30 @@ class BetterNotesApp(Adw.Application):
         win = next((win for win in self.get_windows() if isinstance(win, MainWindow)), None)
         if win:
             win._show_toast(message)
+
+    def _check_due_tasks(self):
+        from betternotes.plan import parse_items
+        today = date.today().isoformat()
+        if not self.store:
+            return GLib.SOURCE_REMOVE
+        for note in self.store.get_all_notes():
+            if note.kind != 'plan':
+                continue
+            for item in parse_items(note.content):
+                due = item.get('due', '')
+                if item['done'] or not due or due > today:
+                    continue
+                key = (note.id, item['id'], due)
+                if key in self._reminded_this_session:
+                    continue
+                self._reminded_this_session.add(key)
+                notification = Gio.Notification.new(_('Plan due'))
+                notification.set_body(
+                    (note.title or _('Untitled Note')) + ' · ' + item['text']
+                )
+                self.send_notification('pinplan-' + note.id + '-' + item['id'],
+                                       notification)
+        return GLib.SOURCE_CONTINUE
 
     def _on_about(self, action, param):
         about = Adw.AboutDialog(
