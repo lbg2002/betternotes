@@ -1,7 +1,7 @@
 name: PinPlan lightweight DEB CI
 on:
   push:
-    branches: [main, feature/pinplan-font-settings-v04]
+    branches: [main, feature/pinplan-v041-compact-float]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -39,7 +39,7 @@ jobs:
           mkdir -p pkg/DEBIAN
           cat > pkg/DEBIAN/control <<'CONTROL'
           Package: betternotes-lite
-          Version: 0.4.0+cn4
+          Version: 0.4.1+cn5
           Architecture: all
           Maintainer: Community Fork <noreply@github.com>
           Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-gdkpixbuf-2.0
@@ -50,25 +50,25 @@ jobs:
           # Do not ship redundant Python bytecode, caches or dev artefacts.
           find pkg/usr -type d -name __pycache__ -prune -exec rm -rf {} +
           find pkg/usr -type f -name '*.pyc' -delete
-          dpkg-deb --build --root-owner-group pkg betternotes-lite_0.4.0+cn4_all.deb
-          dpkg-deb --info betternotes-lite_0.4.0+cn4_all.deb
+          dpkg-deb --build --root-owner-group pkg betternotes-lite_0.4.1+cn5_all.deb
+          dpkg-deb --info betternotes-lite_0.4.1+cn5_all.deb
           ls -lh *.deb
       - uses: actions/upload-artifact@v4
         with:
           name: betternotes-lite-deb
           path: '*.deb'
       - name: Publish experimental prerelease after successful branch build
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/pinplan-font-settings-v04') || (github.event_name == 'pull_request' && github.head_ref == 'feature/pinplan-font-settings-v04')
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/pinplan-v041-compact-float') || (github.event_name == 'pull_request' && github.head_ref == 'feature/pinplan-v041-compact-float')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.4.0-cn4-rc1
+          tag_name: v0.4.1-cn5-rc1
           target_commitish: ${{ github.event.pull_request.head.sha || github.sha }}
-          name: PinPlan Notes v0.4.0 (release candidate)
+          name: PinPlan Notes v0.4.1 (release candidate)
           prerelease: true
           draft: false
           files: '*.deb'
           body: |
-            Experimental live global typography for notes, plans, and previews. CI compilation and
+            Experimental draggable circle / pill floating handles, progress bar, Enter continuation and delete undo. CI compilation and
             packaging passed; GNOME 50 / Ubuntu 26.04 graphical testing has not
             yet been completed. Backup Snap data before trying this package.
       - name: Create GitHub release on tagged builds

@@ -20,6 +20,81 @@ from betternotes.rich_text_toolbar import RichTextToolbar
 from betternotes.plan import new_item, parse_items, serialize_items
 
 
+
+class CompactNoteWindow(Gtk.Window):
+    """Small, independent always-on-top handle for a hidden note editor.
+
+    The editor stays alive (and retains its size, scroll position and text).
+    Keeping the handle in a separate undecorated toplevel avoids trying to
+    resize a mapped Adw.Window below its minimum headerbar dimensions.
+    """
+
+    def __init__(self, original, shape):
+        super().__init__(application=original._app, decorated=False, resizable=False)
+        self._original = original
+        self._shape = shape if shape in ('ball', 'pill') else 'ball'
+        self._drag_started = False
+        self._drag_moving = False
+        self.add_css_class('pinplan-compact-window')
+        self.set_title(original._note.title or _('Untitled Note'))
+        self.set_default_size(58 if self._shape == 'ball' else 188,
+                              58 if self._shape == 'ball' else 46)
+
+        button = Gtk.Button()
+        button.add_css_class('pinplan-compact-handle')
+        button.add_css_class('pinplan-compact-' + self._shape)
+        button.add_css_class('pinplan-mini-' + original._note.color)
+        button.set_tooltip_text(_('Click to expand · drag to move'))
+        if self._shape == 'ball':
+            button.set_child(Gtk.Image.new_from_icon_name(
+                'view-list-symbolic' if original._note.kind == 'plan'
+                else 'document-edit-symbolic'))
+        else:
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            box.set_halign(Gtk.Align.CENTER)
+            box.append(Gtk.Image.new_from_icon_name(
+                'view-list-symbolic' if original._note.kind == 'plan'
+                else 'document-edit-symbolic'))
+            title = Gtk.Label(label=original._note.title or _('Untitled Note'),
+                              ellipsize=Pango.EllipsizeMode.END, max_width_chars=14)
+            box.append(title)
+            button.set_child(box)
+        self.set_child(button)
+        button.connect('clicked', self._on_clicked)
+        drag = Gtk.GestureDrag()
+        drag.connect('drag-begin', self._on_drag_begin)
+        drag.connect('drag-update', self._on_drag_update)
+        button.add_controller(drag)
+
+    def _on_drag_begin(self, gesture, start_x, start_y):
+        self._drag_started = False
+        self._drag_moving = False
+
+    def _on_drag_update(self, gesture, dx, dy):
+        if self._drag_started or abs(dx) + abs(dy) < 7:
+            return
+        self._drag_started = True
+        surface = self.get_surface()
+        if surface is None or not isinstance(surface, Gdk.Toplevel):
+            return
+        ok, x, y = gesture.get_start_point()
+        if not ok:
+            return
+        event = gesture.get_current_event()
+        when = event.get_time() if event else Gdk.CURRENT_TIME
+        # Native compositor/WM move, rather than manually changing coordinates.
+        # GDK expects surface-local press coordinates.
+        surface.begin_move(gesture.get_device(), Gdk.BUTTON_PRIMARY, x, y, when)
+        self._drag_moving = True
+
+    def _on_clicked(self, button):
+        if self._drag_started:
+            self._drag_started = False
+            return
+        if self._original:
+            self._original._restore_from_compact()
+
+
 class NoteWindow(Adw.Window):
 
     def __init__(self, application, note, **kwargs):
@@ -30,6 +105,8 @@ class NoteWindow(Adw.Window):
         self._app = application
         self._note = note
         self._updating_toolbar = False
+        self._compact_window = None
+        self._compact_closing = False
 
         self.set_default_size(440 if note.kind == 'plan' else 400, 500)
         self.set_title(note.title or _('Untitled Note'))
@@ -108,9 +185,12 @@ xlib.XCloseDisplay(dpy)
         GLib.timeout_add(250, self._apply_always_on_top)
 
     def _apply_always_on_top(self):
+        return self._keep_window_above(self)
+
+    def _keep_window_above(self, window):
         import subprocess
 
-        surface = self.get_surface()
+        surface = window.get_surface()
         if surface is None:
             return GLib.SOURCE_REMOVE
 
@@ -129,6 +209,42 @@ xlib.XCloseDisplay(dpy)
         )
         return GLib.SOURCE_REMOVE
 
+    def _collapse_to_compact(self, button=None):
+        if self._compact_window is not None:
+            self._compact_window.present()
+            return
+        # Flush pending edits, but do not destroy the original editor.
+        if hasattr(self, '_auto_save'):
+            self._auto_save.save_now()
+        settings = self._app._get_settings()
+        shape = settings.get_string('compact-shape') if settings else 'ball'
+        compact = CompactNoteWindow(self, shape)
+        self._compact_window = compact
+        compact.connect('map', self._on_compact_mapped)
+        compact.connect('close-request', self._on_compact_close_requested)
+        self.set_visible(False)
+        compact.present()
+
+    def _on_compact_mapped(self, window):
+        GLib.timeout_add(250, self._keep_window_above, window)
+
+    def _on_compact_close_requested(self, compact):
+        if not self._compact_closing and self._compact_window is compact:
+            # Even an external close request must not strand a hidden note.
+            self._compact_window = None
+            self.present()
+        return False
+
+    def _restore_from_compact(self):
+        compact = self._compact_window
+        if compact is None:
+            return
+        self._compact_window = None
+        self._compact_closing = True
+        compact.close()
+        self._compact_closing = False
+        self.present()
+
     def _build_ui(self):
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
@@ -144,6 +260,13 @@ xlib.XCloseDisplay(dpy)
         color_popover = self._build_color_popover()
         color_btn.set_popover(color_popover)
         self._header.pack_start(color_btn)
+
+        collapse = Gtk.Button(icon_name='go-down-symbolic',
+                              tooltip_text=_('Collapse to floating handle'))
+        collapse.add_css_class('flat')
+        collapse.connect('clicked', self._collapse_to_compact)
+        # Adjacent to the color picker for both ordinary notes and plans.
+        self._header.pack_start(collapse)
 
         # Trash button
         trash_btn = Gtk.Button(
@@ -218,11 +341,20 @@ xlib.XCloseDisplay(dpy)
     def _build_plan_ui(self, parent):
         self._plan_items = []
         self._plan_widgets = {}
+        self._plan_undo_stack = []
 
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         header.add_css_class('plan-heading')
         self._plan_progress = Gtk.Label(xalign=0, hexpand=True)
         header.append(self._plan_progress)
+
+        self._plan_undo_button = Gtk.Button(icon_name='edit-undo-symbolic')
+        self._plan_undo_button.add_css_class('flat')
+        self._plan_undo_button.add_css_class('plan-undo-button')
+        self._plan_undo_button.set_tooltip_text(_('Undo deleted task'))
+        self._plan_undo_button.set_visible(False)
+        self._plan_undo_button.connect('clicked', self._plan_undo)
+        header.append(self._plan_undo_button)
 
         self._plan_fold = Gtk.ToggleButton(label=_('Hide completed'))
         self._plan_fold.add_css_class('flat')
@@ -234,6 +366,9 @@ xlib.XCloseDisplay(dpy)
         self._plan_fold.connect('toggled', self._plan_fold_toggled)
         header.append(self._plan_fold)
         parent.append(header)
+        self._plan_progress_bar = Gtk.ProgressBar()
+        self._plan_progress_bar.add_css_class('plan-completion-progress')
+        parent.append(self._plan_progress_bar)
 
         # One scrollable surface; a small plus floats in the bottom corner.
         scroll = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
@@ -286,6 +421,7 @@ xlib.XCloseDisplay(dpy)
             _('Completed {done}/{total}').format(done=done, total=total)
         )
         self._plan_fold.set_sensitive(done > 0)
+        self._plan_progress_bar.set_fraction(done / total if total else 0)
 
     def _plan_fold_toggled(self, toggle):
         settings = self._app._get_settings()
@@ -345,7 +481,7 @@ xlib.XCloseDisplay(dpy)
             entry.set_placeholder_text(_('New task'))
             entry.set_visible(False)
             entry.connect('changed', self._plan_text_changed, uid, label)
-            entry.connect('activate', self._plan_finish_edit, uid)
+            entry.connect('activate', self._plan_enter, uid)
             focus = Gtk.EventControllerFocus()
             focus.connect('leave', lambda controller, key=uid: self._plan_finish_edit(None, key))
             entry.add_controller(focus)
@@ -443,6 +579,15 @@ xlib.XCloseDisplay(dpy)
             entry.grab_focus()
             entry.select_region(-1, -1)
 
+    def _plan_enter(self, entry, uid):
+        # Empty draft terminates input; non-empty Enter continues with a
+        # fresh row. The regular focus-out handler still just commits.
+        item = self._plan_find(uid)
+        add_next = item is not None and bool(item['text'].strip())
+        self._plan_finish_edit(entry, uid)
+        if add_next:
+            self._plan_add(None)
+
     def _plan_finish_edit(self, entry, uid):
         widgets = self._plan_widgets.get(uid)
         if not widgets:
@@ -472,7 +617,24 @@ xlib.XCloseDisplay(dpy)
         self._plan_start_edit(None, item['id'])
 
     def _plan_delete(self, button, uid):
-        self._plan_items = [item for item in self._plan_items if item['id'] != uid]
+        for index, item in enumerate(self._plan_items):
+            if item['id'] == uid:
+                # Preserve full metadata and order (including due date).
+                self._plan_undo_stack.append((index, dict(item)))
+                self._plan_undo_stack = self._plan_undo_stack[-20:]
+                self._plan_items.pop(index)
+                self._plan_undo_button.set_visible(True)
+                self._plan_refresh()
+                self._on_content_changed()
+                return
+
+    def _plan_undo(self, button):
+        if not self._plan_undo_stack:
+            return
+        index, item = self._plan_undo_stack.pop()
+        if not self._plan_find(item['id']):
+            self._plan_items.insert(min(index, len(self._plan_items)), item)
+        self._plan_undo_button.set_visible(bool(self._plan_undo_stack))
         self._plan_refresh()
         self._on_content_changed()
 
@@ -752,6 +914,12 @@ xlib.XCloseDisplay(dpy)
         return Gdk.EVENT_PROPAGATE
 
     def do_close_request(self):
+        compact = self._compact_window
+        if compact is not None:
+            self._compact_window = None
+            self._compact_closing = True
+            compact.close()
+            self._compact_closing = False
         if hasattr(self, '_auto_save'):
             self._auto_save.save_now()
         return False
