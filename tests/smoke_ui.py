@@ -4,7 +4,7 @@ from betternotes.application import BetterNotesApp
 from betternotes.note_window import NoteWindow
 from betternotes.plan import parse_items
 from betternotes.preferences import PreferencesWindow
-from betternotes.x11_position import get_window_geometry, move_window_direct
+from betternotes.x11_position import get_window_geometry, move_window_direct, restore_position
 from gi.repository import Pango, GLib
 import time
 
@@ -117,8 +117,14 @@ assert window.get_visible()
 # not remain centered on the virtual display.
 actual = get_window_geometry(window.get_surface())
 assert actual is not None
-assert abs(actual[0] - expected_handle[0]) < 250, (actual, expected_handle)
-assert abs(actual[1] - expected_handle[1]) < 120, (actual, expected_handle)
+monitors = []
+model = app.get_active_window().get_display().get_monitors()
+for ix in range(model.get_n_items()):
+    geo = model.get_item(ix).get_geometry()
+    monitors.append((geo.x, geo.y, geo.width, geo.height))
+goal = restore_position(expected_handle, window._expanded_size, monitors)
+assert abs(actual[0] - goal[0]) <= 75, (actual, goal, expected_handle)
+assert abs(actual[1] - goal[1]) <= 75, (actual, goal, expected_handle)
 settings.set_string('compact-shape', 'pill')
 window._collapse_to_compact()
 assert window._compact_window._shape == 'pill'
