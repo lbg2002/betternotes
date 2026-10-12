@@ -35,7 +35,8 @@ class NoteStore:
                 color TEXT NOT NULL DEFAULT 'yellow',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                trashed_at TEXT
+                trashed_at TEXT,
+                kind TEXT NOT NULL DEFAULT 'note'
             );
 
             CREATE TABLE IF NOT EXISTS tags (
@@ -70,21 +71,28 @@ class NoteStore:
                 VALUES (new.rowid, new.title, new.content);
             END;
         ''')
+        # Safe, additive migration for existing note databases.
+        columns = {row[1] for row in self._db.execute('PRAGMA table_info(notes)')}
+        if 'kind' not in columns:
+            self._db.execute("ALTER TABLE notes ADD COLUMN kind TEXT NOT NULL DEFAULT 'note'")
+        self._db.commit()
 
     # --- Notes CRUD ---
 
-    def create_note(self, title='', content='', color='yellow') -> Note:
+    def create_note(self, title='', content='', color='yellow', kind='note') -> Note:
+        if kind not in ('note', 'plan'):
+            raise ValueError('Unknown note kind')
         note_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
         self._db.execute(
-            'INSERT INTO notes (id, title, content, color, created_at, updated_at) '
-            'VALUES (?, ?, ?, ?, ?, ?)',
-            (note_id, title, content, color, now, now),
+            'INSERT INTO notes (id, title, content, color, created_at, updated_at, kind) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (note_id, title, content, color, now, now, kind),
         )
         self._db.commit()
         return Note(
             id=note_id, title=title, content=content, color=color,
-            created_at=now, updated_at=now,
+            created_at=now, updated_at=now, kind=kind,
         )
 
     def get_note(self, note_id) -> Note | None:
@@ -283,6 +291,7 @@ class NoteStore:
             created_at=row['created_at'],
             updated_at=row['updated_at'],
             trashed_at=row['trashed_at'],
+            kind=row['kind'],
         )
         note.tags = self.get_tags_for_note(note.id)
         return note
