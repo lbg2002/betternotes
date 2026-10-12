@@ -95,6 +95,13 @@ ZH = {
   "Restore default typography": "恢复默认字体样式",
   "Reset typography": "恢复默认",
   "Font preview: 论文计划 ABC 123": "预览：论文计划 ABC 123",
+  "Floating handle shape": "折叠外观",
+  "Used when a note is collapsed": "便签收起后显示的浮动形状",
+  "Ball": "小圆球",
+  "Rounded rectangle": "圆角长条",
+  "Collapse to floating handle": "收起为浮动小球",
+  "Click to expand · drag to move": "点击展开 · 拖动移动",
+  "Undo deleted task": "撤销删除任务",
   "Formatting": "文本格式"
 }
 
