@@ -23,7 +23,7 @@ class BetterNotesApp(Adw.Application):
         'note-deleted': (GObject.SignalFlags.RUN_LAST, None, (str,)),
     }
 
-    def __init__(self, version='0.1.2', **kwargs):
+    def __init__(self, version='0.2.0', **kwargs):
         super().__init__(
             application_id=APP_ID,
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
@@ -80,6 +80,7 @@ class BetterNotesApp(Adw.Application):
     def _setup_actions(self):
         actions = [
             ('new-note', self._on_new_note, None),
+            ('new-plan', self._on_new_plan, None),
             ('about', self._on_about, None),
             ('quit', self._on_quit, None),
             ('preferences', self._on_preferences, None),
@@ -92,6 +93,7 @@ class BetterNotesApp(Adw.Application):
 
     def _setup_shortcuts(self):
         self.set_accels_for_action('app.new-note', ['<Control>n'])
+        self.set_accels_for_action('app.new-plan', ['<Control><Shift>n'])
         self.set_accels_for_action('app.quit', ['<Control>q'])
         self.set_accels_for_action('app.shortcuts', ['<Control>question'])
         self.set_accels_for_action('app.preferences', ['<Control>comma'])
@@ -136,6 +138,12 @@ class BetterNotesApp(Adw.Application):
         return None
 
     def _on_new_note(self, action, param):
+        self._create_note('note')
+
+    def _on_new_plan(self, action, param):
+        self._create_note('plan')
+
+    def _create_note(self, kind):
         from betternotes.colors import DEFAULT_COLOR
 
         color = DEFAULT_COLOR
@@ -143,13 +151,14 @@ class BetterNotesApp(Adw.Application):
         if settings:
             color = settings.get_string('default-color') or DEFAULT_COLOR
 
-        note = self.store.create_note(title='', content='', color=color)
+        note = self.store.create_note(title='', content='', color=color,
+                                      kind=kind)
         self.emit('note-created', note.id)
         self.open_note(note.id)
 
     def _on_about(self, action, param):
         about = Adw.AboutDialog(
-            application_name='BetterNotes',
+            application_name='PinPlan · 轻笺',
             application_icon=APP_ID,
             developer_name='Paperhead',
             version=self.version,
