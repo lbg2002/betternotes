@@ -410,3 +410,58 @@
     min-height: 40px;
     box-shadow: 0 2px 8px alpha(#000000, 0.2);
 }
+
+/* v0.4.1 draggable minimized note / plan window. */
+window.pinplan-compact-window,
+window.pinplan-compact-window > contents {
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+}
+.pinplan-compact-handle {
+    min-width: 52px;
+    min-height: 52px;
+    padding: 0;
+    border: 1px solid alpha(#ffffff, 0.5);
+    box-shadow: 0 3px 12px alpha(#000000, 0.24);
+    color: #243447;
+    -gtk-icon-filter: none;
+    font-size: 13px;
+    font-weight: 600;
+}
+.pinplan-compact-ball {
+    border-radius: 999px;
+}
+.pinplan-compact-pill {
+    min-height: 42px;
+    min-width: 176px;
+    padding: 0 12px;
+    border-radius: 22px;
+}
+.pinplan-compact-handle:hover {
+    box-shadow: 0 5px 18px alpha(#000000, 0.3);
+    filter: brightness(1.05);
+}
+.pinplan-mini-yellow { background: #fff3ae; }
+.pinplan-mini-blue { background: #abd7ff; }
+.pinplan-mini-green { background: #a8e4bd; }
+.pinplan-mini-pink { background: #ffc6db; }
+.pinplan-mini-orange { background: #ffd1aa; }
+.pinplan-mini-purple { background: #dcd0ff; }
+.pinplan-mini-red { background: #ffc2c1; }
+.pinplan-mini-teal { background: #b4e9e2; }
+.plan-completion-progress {
+    margin: 0 14px 8px;
+    min-height: 5px;
+}
+.plan-completion-progress trough,
+.plan-completion-progress progress {
+    min-height: 5px;
+    border-radius: 99px;
+}
+.plan-undo-button {
+    min-width: 27px;
+    min-height: 27px;
+    padding: 2px;
+}
