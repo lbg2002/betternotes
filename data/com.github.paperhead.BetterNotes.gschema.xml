@@ -43,5 +43,13 @@
       <default>14</default>
       <summary>Note and plan body font size in CSS pixels</summary>
     </key>
+    <key name="compact-shape" type="s">
+      <default>'ball'</default>
+      <choices>
+        <choice value='ball'/>
+        <choice value='pill'/>
+      </choices>
+      <summary>Floating note handle shape, circle or rounded rectangle</summary>
+    </key>
   </schema>
 </schemalist>
