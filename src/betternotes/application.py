@@ -8,6 +8,7 @@ gi.require_version('Adw', '1')
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from betternotes.constants import APP_ID
+from betternotes.i18n import _
 from betternotes.note_store import NoteStore
 from betternotes.main_window import MainWindow
 
