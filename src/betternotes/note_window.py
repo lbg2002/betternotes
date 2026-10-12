@@ -341,11 +341,20 @@ xlib.XCloseDisplay(dpy)
     def _build_plan_ui(self, parent):
         self._plan_items = []
         self._plan_widgets = {}
+        self._plan_undo_stack = []
 
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         header.add_css_class('plan-heading')
         self._plan_progress = Gtk.Label(xalign=0, hexpand=True)
         header.append(self._plan_progress)
+
+        self._plan_undo_button = Gtk.Button(icon_name='edit-undo-symbolic')
+        self._plan_undo_button.add_css_class('flat')
+        self._plan_undo_button.add_css_class('plan-undo-button')
+        self._plan_undo_button.set_tooltip_text(_('Undo deleted task'))
+        self._plan_undo_button.set_visible(False)
+        self._plan_undo_button.connect('clicked', self._plan_undo)
+        header.append(self._plan_undo_button)
 
         self._plan_fold = Gtk.ToggleButton(label=_('Hide completed'))
         self._plan_fold.add_css_class('flat')
@@ -357,6 +366,9 @@ xlib.XCloseDisplay(dpy)
         self._plan_fold.connect('toggled', self._plan_fold_toggled)
         header.append(self._plan_fold)
         parent.append(header)
+        self._plan_progress_bar = Gtk.ProgressBar()
+        self._plan_progress_bar.add_css_class('plan-completion-progress')
+        parent.append(self._plan_progress_bar)
 
         # One scrollable surface; a small plus floats in the bottom corner.
         scroll = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
@@ -409,6 +421,7 @@ xlib.XCloseDisplay(dpy)
             _('Completed {done}/{total}').format(done=done, total=total)
         )
         self._plan_fold.set_sensitive(done > 0)
+        self._plan_progress_bar.set_fraction(done / total if total else 0)
 
     def _plan_fold_toggled(self, toggle):
         settings = self._app._get_settings()
@@ -468,7 +481,7 @@ xlib.XCloseDisplay(dpy)
             entry.set_placeholder_text(_('New task'))
             entry.set_visible(False)
             entry.connect('changed', self._plan_text_changed, uid, label)
-            entry.connect('activate', self._plan_finish_edit, uid)
+            entry.connect('activate', self._plan_enter, uid)
             focus = Gtk.EventControllerFocus()
             focus.connect('leave', lambda controller, key=uid: self._plan_finish_edit(None, key))
             entry.add_controller(focus)
@@ -566,6 +579,15 @@ xlib.XCloseDisplay(dpy)
             entry.grab_focus()
             entry.select_region(-1, -1)
 
+    def _plan_enter(self, entry, uid):
+        # Empty draft terminates input; non-empty Enter continues with a
+        # fresh row. The regular focus-out handler still just commits.
+        item = self._plan_find(uid)
+        add_next = item is not None and bool(item['text'].strip())
+        self._plan_finish_edit(entry, uid)
+        if add_next:
+            self._plan_add(None)
+
     def _plan_finish_edit(self, entry, uid):
         widgets = self._plan_widgets.get(uid)
         if not widgets:
@@ -595,7 +617,24 @@ xlib.XCloseDisplay(dpy)
         self._plan_start_edit(None, item['id'])
 
     def _plan_delete(self, button, uid):
-        self._plan_items = [item for item in self._plan_items if item['id'] != uid]
+        for index, item in enumerate(self._plan_items):
+            if item['id'] == uid:
+                # Preserve full metadata and order (including due date).
+                self._plan_undo_stack.append((index, dict(item)))
+                self._plan_undo_stack = self._plan_undo_stack[-20:]
+                self._plan_items.pop(index)
+                self._plan_undo_button.set_visible(True)
+                self._plan_refresh()
+                self._on_content_changed()
+                return
+
+    def _plan_undo(self, button):
+        if not self._plan_undo_stack:
+            return
+        index, item = self._plan_undo_stack.pop()
+        if not self._plan_find(item['id']):
+            self._plan_items.insert(min(index, len(self._plan_items)), item)
+        self._plan_undo_button.set_visible(bool(self._plan_undo_stack))
         self._plan_refresh()
         self._on_content_changed()
 
