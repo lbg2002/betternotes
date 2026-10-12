@@ -1,7 +1,7 @@
 name: PinPlan lightweight DEB CI
 on:
   push:
-    branches: [main, fix/v043-plan-double-click-x11-position]
+    branches: [main, fix/v044-restore-position-stability]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -43,7 +43,7 @@ jobs:
           mkdir -p pkg/DEBIAN
           cat > pkg/DEBIAN/control <<'CONTROL'
           Package: pinplan-notes
-          Version: 0.4.3
+          Version: 0.4.4
           Provides: betternotes-lite
           Conflicts: betternotes-lite, betternotes
           Replaces: betternotes-lite, betternotes
@@ -56,25 +56,25 @@ jobs:
           # Do not ship redundant Python bytecode, caches or dev artefacts.
           find pkg/usr -type d -name __pycache__ -prune -exec rm -rf {} +
           find pkg/usr -type f -name '*.pyc' -delete
-          dpkg-deb --build --root-owner-group pkg pinplan-notes_0.4.3_all.deb
-          dpkg-deb --info pinplan-notes_0.4.3_all.deb
+          dpkg-deb --build --root-owner-group pkg pinplan-notes_0.4.4_all.deb
+          dpkg-deb --info pinplan-notes_0.4.4_all.deb
           ls -lh *.deb
       - uses: actions/upload-artifact@v4
         with:
           name: betternotes-lite-deb
           path: '*.deb'
       - name: Publish experimental prerelease after successful branch build
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/fix/v043-plan-double-click-x11-position') || (github.event_name == 'pull_request' && github.head_ref == 'fix/v043-plan-double-click-x11-position')
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/fix/v044-restore-position-stability') || (github.event_name == 'pull_request' && github.head_ref == 'fix/v044-restore-position-stability')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.4.3-rc1
+          tag_name: v0.4.4-rc1
           target_commitish: ${{ github.event.pull_request.head.sha || github.sha }}
-          name: PinPlan Notes v0.4.3 (release candidate)
+          name: PinPlan Notes v0.4.4 (release candidate)
           prerelease: true
           draft: false
           files: '*.deb'
           body: |
-            Regression fix for fast plan clicks and verified window restore via Mutter-aware X11 move requests; default editable plan title. CI compilation and
+            Fix 2-second late GNOME centering after compact note restore. Avoid transient window association, check for delayed automatic recenter, and preserve user manual moves. CI compilation and
             packaging passed; GNOME 50 / Ubuntu 26.04 graphical testing has not
             yet been completed. Backup Snap data before trying this package.
       - name: Create GitHub release on tagged builds

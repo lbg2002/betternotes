@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Position must track where the handle is *now*, on either monitor."""
 import unittest
-from betternotes.x11_position import restore_position
+from betternotes.x11_position import restore_position, looks_wm_centered
 
 
 class RestorePositionTests(unittest.TestCase):
@@ -30,6 +30,25 @@ class RestorePositionTests(unittest.TestCase):
         self.assertGreaterEqual(x, -1920)
         self.assertLess(x, 0)
         self.assertEqual(y, 120)
+
+    def test_late_center_snap_detected(self):
+        monitors = [(0, 0, 1280, 1024)]
+        self.assertTrue(looks_wm_centered(
+            (420, 262, 440, 500), monitors, (69, 190)
+        ))
+        self.assertFalse(looks_wm_centered(
+            (79, 195, 440, 500), monitors, (69, 190)
+        ))
+        # Arbitrary user-initiated movement must not be mistaken for recenter.
+        self.assertFalse(looks_wm_centered(
+            (640, 40, 440, 500), monitors, (69, 190)
+        ))
+
+    def test_center_of_secondary_monitor(self):
+        monitors = [(0, 0, 1080, 1920), (1080, 0, 2560, 1440)]
+        self.assertTrue(looks_wm_centered(
+            (2140, 470, 440, 500), monitors, (1210, 180)
+        ))
 
     def test_without_monitor_information(self):
         self.assertEqual(restore_position((300, 400, 50, 50), (400, 500), []),

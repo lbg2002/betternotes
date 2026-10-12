@@ -109,6 +109,8 @@ class NoteWindow(Adw.Window):
         self._compact_window = None
         self._compact_closing = False
         self._restoring_compact = False
+        self._restore_watch_serial = 0
+        self._restore_target = None
 
         self.set_default_size(440 if note.kind == 'plan' else 400, 500)
         self.set_title(note.title or _('Untitled Note'))
@@ -221,6 +223,8 @@ xlib.XCloseDisplay(dpy)
         settings = self._app._get_settings()
         shape = settings.get_string('compact-shape') if settings else 'ball'
         self._restoring_compact = False
+        self._restore_watch_serial += 1  # Cancel pending position checks.
+        self._restore_target = None
         # Capture the user-resized size while the editor is still visible.
         self._expanded_size = (
             self.get_width() if self.get_width() >= 200 else (440 if self._note.kind == 'plan' else 400),
@@ -248,9 +252,9 @@ xlib.XCloseDisplay(dpy)
         if compact is None or self._restoring_compact:
             return
         self._restoring_compact = True
-        # Mutter knows where this still-mapped handle is. Temporary transient
-        # parenting gives it a placement hint even if EWMH is blocked.
-        self.set_transient_for(compact)
+        # Do NOT set the full editor transient-for the compact handle.
+        # GNOME Mutter can recenter the editor when this relationship is
+        # removed a moment after expansion.
         self.present()
         GLib.timeout_add(180, self._finish_restore_near_handle, compact, 0)
 
@@ -276,6 +280,7 @@ xlib.XCloseDisplay(dpy)
                     monitors.append((geo.x, geo.y, geo.width, geo.height))
             size = self._expanded_size or (440, 500)
             x, y = restore_position(handle, size, monitors)
+            self._restore_target = (x, y)
             # EWMH is applied by the window manager asynchronously.
             move_window(surface, x, y)
             GLib.timeout_add(250, self._verify_restore_position,
@@ -315,11 +320,52 @@ xlib.XCloseDisplay(dpy)
         self._compact_window = None
         self._compact_closing = True
         try:
-            self.set_transient_for(None)
             compact.close()
         finally:
             self._compact_closing = False
             self._restoring_compact = False
+
+        # The popup has gone away and the editor is now a standalone window.
+        # Mutter may perform a *later* placement change after its initial map.
+        # Only check for a window-manager-style recenter for a few seconds;
+        # never keep an ongoing timer that fights normal user window movement.
+        target = self._restore_target
+        if target is not None:
+            serial = self._restore_watch_serial
+            GLib.timeout_add(450, self._watch_restore_position,
+                             target, serial, 0)
+
+    def _watch_restore_position(self, target, serial, check):
+        if (serial != self._restore_watch_serial
+                or self._compact_window is not None
+                or not self.get_visible()):
+            return GLib.SOURCE_REMOVE
+        surface = self.get_surface()
+        current = get_window_geometry(surface) if surface else None
+        if current is not None:
+            dx = abs(current[0] - target[0])
+            dy = abs(current[1] - target[1])
+            if dx > 55 or dy > 55:
+                # Only repair a placement matching the monitor's center;
+                # don't snap a window back if the user deliberately dragged
+                # the newly expanded note elsewhere.
+                display = self.get_display()
+                monitors = []
+                if display:
+                    model = display.get_monitors()
+                    for i in range(model.get_n_items()):
+                        rect = model.get_item(i).get_geometry()
+                        monitors.append((rect.x, rect.y,
+                                         rect.width, rect.height))
+                from betternotes.x11_position import looks_wm_centered
+                if looks_wm_centered(current, monitors, target):
+                    if not move_window(surface, *target):
+                        move_window_direct(surface, *target)
+        # Check after the ~2-second Mutter placement, then stop by ~4 seconds.
+        if check < 3:
+            GLib.timeout_add(950, self._watch_restore_position,
+                             target, serial, check + 1)
+        return GLib.SOURCE_REMOVE
 
     def _build_ui(self):
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)

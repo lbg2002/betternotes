@@ -9,6 +9,14 @@ from gi.repository import Pango, GLib
 import time
 
 
+def pump_for(seconds):
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        while GLib.MainContext.default().pending():
+            GLib.MainContext.default().iteration(False)
+        time.sleep(0.025)
+
+
 def wait_for(predicate, seconds=3):
     end = time.monotonic() + seconds
     while time.monotonic() < end:
@@ -125,6 +133,27 @@ for ix in range(model.get_n_items()):
 goal = restore_position(expected_handle, window._expanded_size, monitors)
 assert abs(actual[0] - goal[0]) <= 75, (actual, goal, expected_handle)
 assert abs(actual[1] - goal[1]) <= 75, (actual, goal, expected_handle)
+
+# Simulate GNOME's *delayed* recenter, after the initial successful restore.
+# Previous tests only checked the first second and missed exactly this bug.
+recentered = [False]
+def simulate_late_recenter():
+    surface = window.get_surface()
+    geo = get_window_geometry(surface)
+    monitor = monitors[0]
+    x = round(monitor[0] + (monitor[2] - geo[2]) / 2)
+    y = round(monitor[1] + (monitor[3] - geo[3]) / 2)
+    recentered[0] = move_window_direct(surface, x, y)
+    return GLib.SOURCE_REMOVE
+
+GLib.timeout_add(1600, simulate_late_recenter)
+pump_for(3.6)
+assert recentered[0], 'Delayed recenter was not injected'
+late = get_window_geometry(window.get_surface())
+assert late is not None
+assert abs(late[0] - goal[0]) <= 75, (late, goal)
+assert abs(late[1] - goal[1]) <= 75, (late, goal)
+
 settings.set_string('compact-shape', 'pill')
 window._collapse_to_compact()
 assert window._compact_window._shape == 'pill'
