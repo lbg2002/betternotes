@@ -19,6 +19,7 @@ class PreferencesWindow(Adw.PreferencesDialog):
         self.set_title(_('Preferences'))
 
         self._settings = None
+        self._resetting_font = False
         schema_source = Gio.SettingsSchemaSource.get_default()
         if schema_source and schema_source.lookup(APP_ID, True):
             self._settings = Gio.Settings.new(APP_ID)
@@ -158,7 +159,7 @@ class PreferencesWindow(Adw.PreferencesDialog):
             self._settings.set_int('trash-retention-days', int(row.get_value()))
 
     def _on_font_changed(self, picker, spec):
-        if self._settings:
+        if self._settings and not self._resetting_font:
             desc = picker.get_font_desc()
             if desc:
                 family = sanitize_family(desc.get_family() or '')
@@ -171,8 +172,12 @@ class PreferencesWindow(Adw.PreferencesDialog):
     def _on_reset_typography(self, button):
         if not self._settings:
             return
-        self._settings.reset('font-family')
-        self._settings.reset('font-size')
-        # Reset the controls too, so the dialog and open notes agree.
-        self._font_button.set_font_desc(Pango.FontDescription.from_string('Sans'))
-        self._size_row.set_value(14)
+        self._resetting_font = True
+        try:
+            self._settings.reset('font-family')
+            self._settings.reset('font-size')
+            # Avoid writing "Sans" over the truly empty system-default setting.
+            self._font_button.set_font_desc(Pango.FontDescription.from_string('Sans'))
+            self._size_row.set_value(14)
+        finally:
+            self._resetting_font = False
