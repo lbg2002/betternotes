@@ -104,7 +104,6 @@ sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 \
   libglib2.0-dev-bin desktop-file-utils
 git clone https://github.com/lbg2002/betternotes.git
 cd betternotes
-git checkout feature/pinplan-checklists  # 未合并时使用
 meson setup build --prefix=/usr
 meson compile -C build
 ```
