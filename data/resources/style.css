@@ -350,26 +350,63 @@
 .color-red { background-color: #EF9A9A; }
 .color-teal { background-color: #80CBC4; }
 
-/* PinPlan checklist: compact, touch-friendly while keeping existing note colors. */
-.plan-progress {
+/* PinPlan checklist: one text control, one deletion control. */
+.plan-heading {
     padding: 4px 12px 6px;
+}
+.plan-progress {
     font-size: 12px;
-    opacity: 0.72;
+    opacity: 0.78;
+}
+.plan-fold {
+    font-size: 11px;
+    min-height: 24px;
+    padding: 2px 6px;
+    border-radius: 9px;
 }
 .plan-items {
-    padding: 4px 8px;
+    padding: 4px 10px 70px 10px;
 }
 .plan-item {
-    padding: 3px 0;
+    border-radius: 12px;
+    padding: 2px 4px;
+    min-height: 32px;
+    transition: background-color 150ms ease;
 }
-.plan-item button {
-    min-width: 27px;
-    min-height: 27px;
-    padding: 2px;
+.plan-item-done {
+    background-color: alpha(#69778b, 0.21);
+    opacity: 0.68;
+}
+.plan-text-button {
+    border-radius: 9px;
+    min-height: 34px;
+    padding: 4px 8px;
+    box-shadow: none;
+    background: transparent;
+}
+.plan-text-button:hover {
+    background-color: alpha(#6e7d92, 0.13);
 }
 .plan-label {
-    padding: 2px 4px;
+    font-size: 14px;
+    padding: 2px 0;
 }
-.plan-add {
-    margin: 8px 12px 12px;
+.plan-delete {
+    color: #c83d48;
+    -gtk-icon-filter: none;
+    opacity: 0.78;
+    border-radius: 10px;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 4px;
+}
+.plan-delete:hover {
+    color: #ef4254;
+    background: alpha(#c83d48, 0.17);
+    opacity: 1;
+}
+.plan-add-fab {
+    min-width: 40px;
+    min-height: 40px;
+    box-shadow: 0 2px 8px alpha(#000000, 0.2);
 }
