@@ -25,7 +25,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._selection_mode = False
         self._selected_ids = set()
 
-        self.set_title('BetterNotes')
+        self.set_title('PinPlan · 轻笺')
         self.set_default_size(900, 650)
         self.set_icon_name(APP_ID)
 
@@ -54,6 +54,8 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Menu
         menu = Gio.Menu()
+        menu.append(_('New note'), 'app.new-note')
+        menu.append(_('New plan'), 'app.new-plan')
         menu.append(_('Keyboard Shortcuts'), 'app.shortcuts')
         menu.append(_('Preferences'), 'app.preferences')
         menu.append(_('About BetterNotes'), 'app.about')
@@ -195,8 +197,8 @@ class MainWindow(Adw.ApplicationWindow):
         trash_page.append(self._trash_stack)
 
         # Add to view stack
-        self._view_stack.add_titled(notes_page, 'notes', 'Notes')
-        self._view_stack.add_titled(trash_page, 'trash', 'Trash')
+        self._view_stack.add_titled(notes_page, 'notes', _('Notes'))
+        self._view_stack.add_titled(trash_page, 'trash', _('Trash'))
         self._view_stack.connect('notify::visible-child', self._on_view_changed)
 
         self._toolbar_view.set_content(self._view_stack)
@@ -209,9 +211,13 @@ class MainWindow(Adw.ApplicationWindow):
         overlay = Gtk.Overlay()
         overlay.set_child(self._toast_overlay)
 
-        fab = Gtk.Button(
+        new_menu = Gio.Menu()
+        new_menu.append(_('New note'), 'app.new-note')
+        new_menu.append(_('New plan'), 'app.new-plan')
+        fab = Gtk.MenuButton(
             icon_name='list-add-symbolic',
-            tooltip_text=_('New Note (Ctrl+N)'),
+            tooltip_text=_('Create note or plan'),
+            menu_model=new_menu,
         )
         fab.add_css_class('fab')
         fab.add_css_class('suggested-action')
@@ -220,7 +226,6 @@ class MainWindow(Adw.ApplicationWindow):
         fab.set_valign(Gtk.Align.END)
         fab.set_margin_end(24)
         fab.set_margin_bottom(24)
-        fab.connect('clicked', lambda b: self._app.activate_action('new-note'))
         overlay.add_overlay(fab)
         self._fab = fab
 
