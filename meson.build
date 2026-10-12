@@ -1,5 +1,5 @@
 project('betternotes',
-  version: '0.4.2',
+  version: '0.4.3',
   meson_version: '>= 0.62.0',
   default_options: ['warning_level=2'],
 )

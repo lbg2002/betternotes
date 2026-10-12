@@ -93,7 +93,12 @@ def get_window_geometry(surface):
 
 
 def move_window(surface, x, y):
-    """Request compositor/WM position of X11 client; WM may constrain it."""
+    """Ask an EWMH window manager to move a mapped X11 toplevel.
+
+    Mutter/XWayland may override plain XMoveWindow after GTK4 remaps a
+    window. _NET_MOVERESIZE_WINDOW is a root-client request that the WM
+    interprets in desktop coordinates. It remains a request, not a guarantee.
+    """
     try:
         import gi
         gi.require_version('GdkX11', '4.0')
@@ -106,9 +111,79 @@ def move_window(surface, x, y):
         lib = ctypes.CDLL(libname)
         lib.XOpenDisplay.argtypes = [ctypes.c_char_p]
         lib.XOpenDisplay.restype = ctypes.c_void_p
-        lib.XMoveWindow.argtypes = [
-            ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_int
+        lib.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+        lib.XDefaultRootWindow.restype = ctypes.c_ulong
+        lib.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+        lib.XInternAtom.restype = ctypes.c_ulong
+        lib.XSendEvent.argtypes = [
+            ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_long,
+            ctypes.c_void_p,
         ]
+        lib.XSendEvent.restype = ctypes.c_int
+        lib.XFlush.argtypes = [ctypes.c_void_p]
+        lib.XCloseDisplay.argtypes = [ctypes.c_void_p]
+
+        class XClientMessageEvent(ctypes.Structure):
+            _fields_ = [
+                ('type', ctypes.c_int), ('serial', ctypes.c_ulong),
+                ('send_event', ctypes.c_int), ('display', ctypes.c_void_p),
+                ('window', ctypes.c_ulong), ('message_type', ctypes.c_ulong),
+                ('format', ctypes.c_int), ('data', ctypes.c_long * 5),
+            ]
+
+        class XEvent(ctypes.Union):
+            _fields_ = [
+                ('xclient', XClientMessageEvent),
+                ('pad', ctypes.c_char * 192),
+            ]
+
+        dpy = lib.XOpenDisplay(None)
+        if not dpy:
+            return False
+        try:
+            root = lib.XDefaultRootWindow(dpy)
+            atom = lib.XInternAtom(dpy, b'_NET_MOVERESIZE_WINDOW', False)
+            event = XEvent()
+            event.xclient.type = 33   # ClientMessage
+            event.xclient.send_event = True
+            event.xclient.display = dpy
+            event.xclient.window = surface.get_xid()
+            event.xclient.message_type = atom
+            event.xclient.format = 32
+            # NorthWestGravity (1); x and y supplied; source=application.
+            event.xclient.data[0] = 1 | (1 << 8) | (1 << 9) | (1 << 12)
+            event.xclient.data[1] = int(x)
+            event.xclient.data[2] = int(y)
+            event.xclient.data[3] = 0
+            event.xclient.data[4] = 0
+            sent = lib.XSendEvent(
+                dpy, root, False, (1 << 20) | (1 << 19),
+                ctypes.byref(event),
+            )
+            lib.XFlush(dpy)
+            return bool(sent)
+        finally:
+            lib.XCloseDisplay(dpy)
+    except (ImportError, ValueError, OSError, AttributeError):
+        return False
+
+
+def move_window_direct(surface, x, y):
+    """Fallback when the WM does not implement the EWMH positioning request."""
+    try:
+        import gi
+        gi.require_version('GdkX11', '4.0')
+        from gi.repository import GdkX11
+        if not isinstance(surface, GdkX11.X11Surface):
+            return False
+        name = ctypes.util.find_library('X11')
+        if not name:
+            return False
+        lib = ctypes.CDLL(name)
+        lib.XOpenDisplay.argtypes = [ctypes.c_char_p]
+        lib.XOpenDisplay.restype = ctypes.c_void_p
+        lib.XMoveWindow.argtypes = [ctypes.c_void_p, ctypes.c_ulong,
+                                     ctypes.c_int, ctypes.c_int]
         lib.XMoveWindow.restype = ctypes.c_int
         lib.XFlush.argtypes = [ctypes.c_void_p]
         lib.XCloseDisplay.argtypes = [ctypes.c_void_p]
