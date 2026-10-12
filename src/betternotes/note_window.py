@@ -31,7 +31,7 @@ class NoteWindow(Adw.Window):
         self._note = note
         self._updating_toolbar = False
 
-        self.set_default_size(400, 500)
+        self.set_default_size(440 if note.kind == 'plan' else 400, 500)
         self.set_title(note.title or _('Untitled Note'))
 
         self._build_ui()
