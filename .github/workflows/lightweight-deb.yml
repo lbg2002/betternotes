@@ -49,8 +49,8 @@ jobs:
           # Do not ship redundant Python bytecode, caches or dev artefacts.
           find pkg/usr -type d -name __pycache__ -prune -exec rm -rf {} +
           find pkg/usr -type f -name '*.pyc' -delete
-          dpkg-deb --build --root-owner-group pkg betternotes-lite_0.1.2+cn1_all.deb
-          dpkg-deb --info betternotes-lite_0.1.2+cn1_all.deb
+          dpkg-deb --build --root-owner-group pkg betternotes-lite_0.2.0+cn2_all.deb
+          dpkg-deb --info betternotes-lite_0.2.0+cn2_all.deb
           ls -lh *.deb
       - uses: actions/upload-artifact@v4
         with:
@@ -60,9 +60,9 @@ jobs:
         if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/pinplan-checklists') || (github.event_name == 'pull_request' && github.head_ref == 'feature/pinplan-checklists')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.0-cn2-pre
+          tag_name: v0.2.0-cn2-rc1
           target_commitish: ${{ github.event.pull_request.head.sha || github.sha }}
-          name: PinPlan Notes 0.2.0-cn2 (experimental)
+          name: PinPlan Notes v0.2.0 (release candidate)
           prerelease: true
           draft: false
           files: '*.deb'
