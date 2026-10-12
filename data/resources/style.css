@@ -349,3 +349,27 @@
 .color-purple { background-color: #CE93D8; }
 .color-red { background-color: #EF9A9A; }
 .color-teal { background-color: #80CBC4; }
+
+/* PinPlan checklist: compact, touch-friendly while keeping existing note colors. */
+.plan-progress {
+    padding: 4px 12px 6px;
+    font-size: 12px;
+    opacity: 0.72;
+}
+.plan-items {
+    padding: 4px 8px;
+}
+.plan-item {
+    padding: 3px 0;
+}
+.plan-item button {
+    min-width: 27px;
+    min-height: 27px;
+    padding: 2px;
+}
+.plan-label {
+    padding: 2px 4px;
+}
+.plan-add {
+    margin: 8px 12px 12px;
+}
