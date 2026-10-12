@@ -196,6 +196,9 @@ class BetterNotesApp(Adw.Application):
             chosen = dialog.save_finish(result)
             if not chosen or not chosen.get_path():
                 return
+            for win in list(self._note_windows.values()):
+                if hasattr(win, '_auto_save'):
+                    win._auto_save.save_now()
             archive = make_archive(self.store)
             with open(chosen.get_path(), 'w', encoding='utf-8') as file:
                 json.dump(archive, file, ensure_ascii=False, indent=2)
