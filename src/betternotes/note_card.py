@@ -55,6 +55,8 @@ class NoteCard(Gtk.Overlay):
 
         # Title
         title = note.title or _('Untitled Note')
+        if note.kind == 'plan':
+            title = '☑ ' + title
         title_label = Gtk.Label(
             label=title,
             xalign=0,
