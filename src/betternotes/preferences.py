@@ -4,11 +4,12 @@ import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 
-from gi.repository import Adw, Gio, Gtk
+from gi.repository import Adw, Gio, Gtk, Pango
 
 from betternotes.colors import COLOR_NAMES
 from betternotes.constants import APP_ID
 from betternotes.i18n import _
+from betternotes.font_settings import sanitize_family
 
 
 class PreferencesWindow(Adw.PreferencesDialog):
@@ -91,6 +92,59 @@ class PreferencesWindow(Adw.PreferencesDialog):
                                 Gio.SettingsBindFlags.DEFAULT)
         ui_group.add(format_row)
         page.add(ui_group)
+
+        # Typography applies immediately to note bodies, plan items and cards.
+        # Gtk.FontDialogButton is available since GTK 4.10 (Ubuntu 24.04+).
+        font_group = Adw.PreferencesGroup(title=_('Typography'))
+        font_group.set_description(_('Applies to notes, checklists and previews'))
+
+        family_row = Adw.ActionRow(title=_('Font family'),
+                                   subtitle=_('Choose an installed system font'))
+        self._font_button = Gtk.FontDialogButton.new(Gtk.FontDialog())
+        self._font_button.set_use_font(False)
+        self._font_button.set_use_size(False)
+        self._font_button.set_valign(Gtk.Align.CENTER)
+        stored_family = (
+            sanitize_family(self._settings.get_string('font-family'))
+            if self._settings else ''
+        )
+        self._font_button.set_font_desc(
+            Pango.FontDescription.from_string(stored_family or 'Sans')
+        )
+        family_row.add_suffix(self._font_button)
+        family_row.set_activatable_widget(self._font_button)
+        self._font_button.connect('notify::font-desc', self._on_font_changed)
+        font_group.add(family_row)
+
+        size_row = Adw.SpinRow(
+            title=_('Font size'),
+            subtitle=_('Pixels — affects note text and plan items'),
+        )
+        size_row.set_adjustment(Gtk.Adjustment(
+            lower=10, upper=32, step_increment=1, page_increment=2, value=14
+        ))
+        size_row.set_value(self._settings.get_int('font-size') if self._settings else 14)
+        size_row.connect('notify::value', self._on_font_size_changed)
+        self._size_row = size_row
+        font_group.add(size_row)
+
+        reset_row = Adw.ActionRow(title=_('System font and default size'),
+                                  subtitle=_('Restore default typography'))
+        reset_button = Gtk.Button(label=_('Reset typography'))
+        reset_button.add_css_class('flat')
+        reset_button.set_valign(Gtk.Align.CENTER)
+        reset_button.connect('clicked', self._on_reset_typography)
+        reset_row.add_suffix(reset_button)
+        reset_row.set_activatable_widget(reset_button)
+        font_group.add(reset_row)
+
+        preview = Gtk.Label(label=_('Font preview: 论文计划 ABC 123'),
+                            wrap=True, xalign=0)
+        preview.add_css_class('plan-font-preview')
+        preview.set_margin_top(6)
+        preview.set_margin_bottom(6)
+        font_group.add(preview)
+        page.add(font_group)
         self.add(page)
 
     def _on_color_changed(self, row, pspec):
@@ -102,3 +156,23 @@ class PreferencesWindow(Adw.PreferencesDialog):
     def _on_retention_changed(self, row, pspec):
         if self._settings:
             self._settings.set_int('trash-retention-days', int(row.get_value()))
+
+    def _on_font_changed(self, picker, spec):
+        if self._settings:
+            desc = picker.get_font_desc()
+            if desc:
+                family = sanitize_family(desc.get_family() or '')
+                self._settings.set_string('font-family', family)
+
+    def _on_font_size_changed(self, row, spec):
+        if self._settings:
+            self._settings.set_int('font-size', int(row.get_value()))
+
+    def _on_reset_typography(self, button):
+        if not self._settings:
+            return
+        self._settings.reset('font-family')
+        self._settings.reset('font-size')
+        # Reset the controls too, so the dialog and open notes agree.
+        self._font_button.set_font_desc(Pango.FontDescription.from_string('Sans'))
+        self._size_row.set_value(14)
