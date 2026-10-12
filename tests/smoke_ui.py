@@ -58,8 +58,8 @@ settings.set_int('font-size', 20)
 settings.set_string('font-family', 'Noto Sans CJK SC')
 assert settings.get_int('font-size') == 20
 assert settings.get_string('font-family') == 'Noto Sans CJK SC'
-prefs._font_button.set_font_desc(Pango.FontDescription.from_string('Sans'))
-assert settings.get_string('font-family') == 'Sans'
+prefs._font_button.set_font_desc(Pango.FontDescription.from_string('Monospace'))
+assert settings.get_string('font-family') == 'Monospace'
 prefs._on_reset_typography(None)
 assert settings.get_string('font-family') == ''
 assert settings.get_int('font-size') == 14
