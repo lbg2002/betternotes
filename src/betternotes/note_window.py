@@ -420,6 +420,7 @@ xlib.XCloseDisplay(dpy)
         self._plan_undo_stack = []
         self._plan_refresh_busy = False
         self._plan_editing_uid = None
+        self._plan_pending_uid = None
 
         footer_summary = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         footer_summary.add_css_class('plan-footer-summary')
@@ -689,6 +690,8 @@ xlib.XCloseDisplay(dpy)
     def _plan_activate_editor(self, uid):
         if self._plan_refresh_busy:
             return GLib.SOURCE_REMOVE
+        if self._plan_pending_uid == uid:
+            self._plan_pending_uid = None
         widgets = self._plan_widgets.get(uid)
         if not widgets:
             return GLib.SOURCE_REMOVE
@@ -742,6 +745,8 @@ xlib.XCloseDisplay(dpy)
             return GLib.SOURCE_CONTINUE
         item = self._plan_find(uid)
         widgets = self._plan_widgets.get(uid)
+        if self._plan_pending_uid == uid:
+            self._plan_pending_uid = None
         if (item is not None and not item['text'].strip()
                 and (not widgets or not widgets[1].get_visible())):
             self._plan_items = [i for i in self._plan_items if i['id'] != uid]
@@ -750,6 +755,13 @@ xlib.XCloseDisplay(dpy)
         return GLib.SOURCE_REMOVE
 
     def _plan_add(self, button):
+        # Two clicks may arrive before the first editor has been focused by
+        # the next GTK idle iteration. Reuse that pending draft.
+        if self._plan_pending_uid:
+            pending = self._plan_find(self._plan_pending_uid)
+            if pending is not None and not pending['text'].strip():
+                return
+            self._plan_pending_uid = None
         # A repeated tap must not destroy a still-focused empty draft.
         for uid, (label, entry) in list(self._plan_widgets.items()):
             if entry.get_visible():
@@ -760,6 +772,7 @@ xlib.XCloseDisplay(dpy)
                 self._plan_finish_edit(None, uid)
         item = new_item()
         self._plan_items.append(item)
+        self._plan_pending_uid = item['id']
         self._plan_refresh()
         GLib.idle_add(self._plan_activate_editor, item['id'])
 
