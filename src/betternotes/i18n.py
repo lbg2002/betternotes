@@ -52,6 +52,17 @@ ZH = {
   "Restart to apply language changes": "重新启动应用以应用语言设置",
   "Compact mode": "紧凑模式",
   "Show formatting toolbar": "显示格式工具栏",
+  "New note": "新建便签",
+  "New plan": "新建计划",
+  "Create note or plan": "新建便签或计划",
+  "Add task": "添加任务",
+  "New task": "新任务",
+  "Edit task": "编辑任务",
+  "Toggle completed": "切换完成状态",
+  "Move up": "上移",
+  "Move down": "下移",
+  "Delete task": "删除任务",
+  "Completed {done}/{total}": "已完成 {done}/{total}",
   "Formatting": "文本格式"
 }
 
