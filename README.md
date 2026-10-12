@@ -4,7 +4,7 @@
 
 **把想法贴在桌面，把计划逐项完成。**
 
-**v0.4 更新：在主界面「首选项 → 字体与字号」中选择电脑已安装的字体、调整 10–32 px 字号，普通便签、计划清单及预览会实时同步，支持恢复系统默认。**
+**v0.4.1 更新：** 普通便签与计划都可点击标题栏颜色图标旁的折叠按钮，缩成始终置顶、可拖动的小圆球或圆角长条；点击可展开。首选项可选折叠形状。计划新增完成进度条、Enter 连续录入、撤销删除。\n\n**v0.4 更新：在主界面「首选项 → 字体与字号」中选择电脑已安装的字体、调整 10–32 px 字号，普通便签、计划清单及预览会实时同步，支持恢复系统默认。**
 
 v0.3 的极简计划、拖拽排序、完成项折叠、模板、到期提醒和备份功能全部保留。
 
@@ -30,6 +30,7 @@ v0.3 的极简计划、拖拽排序、完成项折叠、模板、到期提醒和
 | 功能 | 普通便签 | 计划清单 |
 |:--|:--:|:--:|
 | 桌面独立窗口、置顶 | ✅ | ✅ |
+| 折叠为可拖动小圆球 / 圆角长条、单击还原 | ✅ | ✅ |
 | 8 种颜色及深色主题 | ✅ | ✅ |
 | 自定义标题和标签 | ✅ | ✅ |
 | 全局字体、字号实时调整 | ✅ | ✅ |
@@ -42,7 +43,9 @@ v0.3 的极简计划、拖拽排序、完成项折叠、模板、到期提醒和
 | 完成项浅灰背景、可折叠已完成 | — | ✅ |
 | 点击文字编辑、失焦/回车完成输入 | — | ✅ |
 | 截止日期、软件运行时的到期提醒 | — | ✅ |
-| 已完成数量 / 总数 | — | ✅ |
+| 已完成数量 / 总数与进度条 | — | ✅ |
+| Enter 连续创建下一条任务 | — | ✅ |
+| 删除单条任务后撤销（20 步） | — | ✅ |
 
 **其他特性**：简体中文 / 英语 / 跟随系统；保留标签筛选、全文搜索、撤销部分删除操作；所有便签本地存储于 SQLite，无广告、无注册、无云端同步。
 
@@ -70,15 +73,25 @@ sudo apt install ./betternotes-lite_*.deb
 
 同样点击 **+** →「新建计划」，或按 `Ctrl+Shift+N`。
 
-1. 点击右下角圆形 **+** 输入一条待办；按 Enter 或点击其他地方结束编辑。空白新任务在失焦后会自动取消。
+1. 点击右下角圆形 **+** 输入一条待办；**输入文字后按 Enter 会立即新增下一条**，点击空白处则只结束编辑。空白任务按 Enter / 失焦会自动取消。
 2. 勾选条目前的复选框：标记完成、显示删除线；再点一次恢复未完成。
 3. 直接**点击文字编辑**，按住文字**拖动到另一条任务上**即可调整顺序；仅保留红色删除图标。右键点击任务文字可以设定或清除截止日期。
-4. 顶部显示「已完成 x/y」并提供**收起已完成**按钮；已勾选项目会划线并显示灰色背景。内容、顺序及日期自动保存到本地。
+4. 顶部显示「已完成 x/y」与细进度条，并提供**收起已完成**按钮；已勾选项目会划线并显示灰色背景。内容、顺序及日期自动保存到本地。
 5. 可像普通便签一样修改颜色、标签和标题，窗口置顶行为保持一致。
 
-**说明**：删除单条任务后无法通过便签回收站恢复（回收站针对整张便签），建议定期导出备份。到期提醒只在 PinPlan 正在运行时检查，默认每 15 分钟一次；关闭应用不会保留后台提醒服务。
+**说明**：删除单条任务可使用进度条旁出现的「撤销」按钮恢复，支持本次窗口会话最近 20 次删除（包括原顺序与截止日期）；关闭窗口后不保留单条任务的撤销历史。仍建议定期导出备份。到期提醒只在 PinPlan 正在运行时检查，默认每 15 分钟一次；关闭应用不会保留后台提醒服务。
 
-### 4. 计划模板与数据备份
+### 4. 折叠小球 / 圆角长条（v0.4.1）
+
+每张普通便签和计划窗口标题栏左上方的**调色板右侧**增加收起按钮。点击即可变成一个独立、紧凑的小窗：
+
+- 默认**小圆球**（约 58 × 58 px）；也可在**主界面 → 首选项 → 外观 → 折叠外观**选**圆角长条**（约 188 × 46 px，显示标题）。
+- **点击**小球/长条可恢复原便签编辑窗口；**拖动**可放到屏幕角落。每张便签都可以独立收起，普通便签和计划一致。
+- 收起前自动保存编辑内容；原编辑窗口保持在内存，展开时保留文本、滚动状态等。原有 XWayland 置顶逻辑继续用于浮动窗。
+- 形状选择是**全局偏好**，在下次收起时生效。关闭或退出程序后不会自动恢复收起状态；需重新打开便签。Windows 及不同 Linux 桌面环境的表现可能不同。
+- 圆形视觉效果需要桌面合成器支持透明窗口；GNOME/XWayland 实际圆角和跨屏移动体验建议自行验证。
+
+### 5. 计划模板与数据备份
 
 主界面右下角 **+ → 计划模板** 可新建「每日计划」「每周计划」「学习计划」，模板只是可自由编辑的初始清单。
 
@@ -88,7 +101,7 @@ sudo apt install ./betternotes-lite_*.deb
 - 导入会先校验文件，再一次性合并记录；**已有相同 ID 的便签不会被覆盖**。请妥善保管备份，因为可能包含个人信息。
 - 导入导出使用系统文件选择窗口，不需要数据库软件；现有便签也仍然使用 SQLite 自动保存。
 
-### 5. 快捷键
+### 6. 快捷键
 
 | 快捷键 | 功能 |
 |:--|:--|
@@ -143,7 +156,8 @@ PYTHONPATH=src /usr/bin/python3 -m unittest discover -s tests -v
 PinPlan Notes is a small, local-first sticky notes and checklist application for the Linux desktop, derived from BetterNotes.
 
 - **Sticky notes:** rich text, optional compact toolbar, colors, tags, full-text search, trash and automatic saving.
-- **Checklists:** click text to edit, drag it to reorder, mark completed tasks with strikethrough and muted background, hide completed tasks, delete entries and save automatically. Right-click for optional due dates.
+- **Floating compact notes:** Collapse ordinary notes and plans into draggable always-on-top circles or rounded pills, click to restore. Choose shape in Preferences.
+- **Checklists:** click text to edit, drag to reorder, track progress, press Enter to add the next task, undo recent deletions, fold completed items and autosave. Right-click for optional due dates.
 - **Desktop:** individual always-on-top windows through the original XWayland/X11 implementation.
 - **Typography:** live font-family and font-size (10–32px) preferences for notes, checklists and previews, with system-default reset.
 - **Localization:** Simplified Chinese, English, or system language.
