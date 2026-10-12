@@ -261,7 +261,10 @@ xlib.XCloseDisplay(dpy)
 
     def _plan_markup(self, item):
         escaped = GLib.markup_escape_text(item['text'] or _('New task'))
-        return '<s>' + escaped + '</s>' if item['done'] else escaped
+        text = '<s>' + escaped + '</s>' if item['done'] else escaped
+        if item.get('due'):
+            text += '\\n<small>📅 ' + GLib.markup_escape_text(item['due']) + '</small>'
+        return text
 
     def _plan_progress_update(self):
         done = sum(bool(item['done']) for item in self._plan_items)
@@ -320,6 +323,9 @@ xlib.XCloseDisplay(dpy)
             drop = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
             drop.connect('drop', self._plan_drop, uid)
             text_btn.add_controller(drop)
+            context = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
+            context.connect('pressed', self._plan_open_date_menu, uid, text_btn)
+            text_btn.add_controller(context)
             row.append(text_btn)
 
             entry = Gtk.Entry(text=item['text'], hexpand=True)
@@ -359,6 +365,45 @@ xlib.XCloseDisplay(dpy)
         self._plan_refresh()
         self._on_content_changed()
         return True
+
+    def _plan_open_date_menu(self, gesture, count, x, y, uid, button):
+        item = self._plan_find(uid)
+        if item is None:
+            return
+        popover = Gtk.Popover()
+        popover.set_parent(button)
+        layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        layout.set_margin_top(8)
+        layout.set_margin_bottom(8)
+        layout.set_margin_start(8)
+        layout.set_margin_end(8)
+        label = Gtk.Label(label=_('Choose due date'))
+        layout.append(label)
+        calendar = Gtk.Calendar()
+        layout.append(calendar)
+        calendar.connect('day-selected', self._plan_date_chosen, uid, popover)
+        clear = Gtk.Button(label=_('Clear due date'))
+        clear.connect('clicked', self._plan_clear_date, uid, popover)
+        layout.append(clear)
+        popover.set_child(layout)
+        popover.connect('closed', lambda obj: obj.unparent())
+        popover.popup()
+
+    def _plan_date_chosen(self, calendar, uid, popover):
+        item = self._plan_find(uid)
+        if item is not None:
+            item['due'] = calendar.get_date().format('%Y-%m-%d')
+            popover.popdown()
+            GLib.idle_add(self._plan_refresh)
+            self._on_content_changed()
+
+    def _plan_clear_date(self, button, uid, popover):
+        item = self._plan_find(uid)
+        if item is not None:
+            item['due'] = ''
+            popover.popdown()
+            GLib.idle_add(self._plan_refresh)
+            self._on_content_changed()
 
     def _plan_toggle(self, check, uid):
         item = self._plan_find(uid)
