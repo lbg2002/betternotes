@@ -239,6 +239,10 @@ xlib.XCloseDisplay(dpy)
         scroll = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
         self._plan_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         self._plan_box.add_css_class('plan-items')
+        self._plan_box.set_vexpand(True)
+        blank_click = Gtk.GestureClick()
+        blank_click.connect('released', self._plan_blank_clicked)
+        self._plan_box.add_controller(blank_click)
         scroll.set_child(self._plan_box)
 
         overlay = Gtk.Overlay()
@@ -255,6 +259,15 @@ xlib.XCloseDisplay(dpy)
         add_btn.connect('clicked', self._plan_add)
         overlay.add_overlay(add_btn)
         parent.append(overlay)
+
+    def _plan_blank_clicked(self, gesture, count, x, y):
+        # Only a click on the empty surface commits editing; clicking text
+        # itself should begin (not immediately finish) inline editing.
+        picked = self._plan_box.pick(x, y, Gtk.PickFlags.DEFAULT)
+        if picked is self._plan_box or picked is None:
+            for uid, widgets in list(self._plan_widgets.items()):
+                if widgets[1].get_visible():
+                    self._plan_finish_edit(None, uid)
 
     def _plan_find(self, uid):
         return next((item for item in self._plan_items if item['id'] == uid), None)
