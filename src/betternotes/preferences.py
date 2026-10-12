@@ -92,6 +92,19 @@ class PreferencesWindow(Adw.PreferencesDialog):
             self._settings.bind('show-format-toolbar', format_row, 'active',
                                 Gio.SettingsBindFlags.DEFAULT)
         ui_group.add(format_row)
+        shape_row = Adw.ComboRow(title=_('Floating handle shape'),
+                                subtitle=_('Used when a note is collapsed'))
+        shapes = Gtk.StringList()
+        shapes.append(_('Ball'))
+        shapes.append(_('Rounded rectangle'))
+        shape_row.set_model(shapes)
+        shape_values = ('ball', 'pill')
+        if self._settings:
+            selected = self._settings.get_string('compact-shape')
+            shape_row.set_selected(shape_values.index(selected) if selected in shape_values else 0)
+            shape_row.connect('notify::selected', lambda row, spec:
+                self._settings.set_string('compact-shape', shape_values[row.get_selected()]))
+        ui_group.add(shape_row)
         page.add(ui_group)
 
         # Typography applies immediately to note bodies, plan items and cards.
