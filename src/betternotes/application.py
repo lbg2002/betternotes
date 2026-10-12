@@ -43,8 +43,8 @@ class BetterNotesApp(Adw.Application):
         self._setup_actions()
         self._setup_shortcuts()
         # Lightweight reminder checks only while the application is running.
-        GLib.timeout_add_seconds(10, self._check_due_tasks)
-        GLib.timeout_add_seconds(900, self._check_due_tasks)
+        GLib.timeout_add_seconds(10, self._check_due_tasks, False)
+        GLib.timeout_add_seconds(900, self._check_due_tasks, True)
 
     def _load_css(self):
         css_provider = Gtk.CssProvider()
@@ -237,7 +237,7 @@ class BetterNotesApp(Adw.Application):
         if win:
             win._show_toast(message)
 
-    def _check_due_tasks(self):
+    def _check_due_tasks(self, repeat=True):
         from betternotes.plan import parse_items
         today = date.today().isoformat()
         if not self.store:
@@ -259,7 +259,7 @@ class BetterNotesApp(Adw.Application):
                 )
                 self.send_notification('pinplan-' + note.id + '-' + item['id'],
                                        notification)
-        return GLib.SOURCE_CONTINUE
+        return GLib.SOURCE_CONTINUE if repeat else GLib.SOURCE_REMOVE
 
     def _on_about(self, action, param):
         about = Adw.AboutDialog(
