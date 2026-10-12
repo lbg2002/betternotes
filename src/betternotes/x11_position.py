@@ -36,6 +36,27 @@ def restore_position(handle, expanded, monitors):
     )
 
 
+def looks_wm_centered(window, monitors, target):
+    """Recognize an unexpected desktop-center placement, not manual dragging.
+
+    The original target must be visibly away from the monitor center. Allow
+    some Y variation for compositor panels and window decorations.
+    """
+    if window is None or not monitors:
+        return False
+    x, y, width, height = window
+    tx, ty = target
+    for mx, my, mw, mh in monitors:
+        if not (mx <= tx < mx + mw and my <= ty < my + mh):
+            continue
+        center_x = mx + (mw - width) / 2
+        center_y = my + (mh - height) / 2
+        if abs(tx - center_x) < 130 and abs(ty - center_y) < 130:
+            return False
+        return abs(x - center_x) <= 130 and abs(y - center_y) <= 155
+    return False
+
+
 def get_window_geometry(surface):
     """Return X11 root geometry or None (including native Wayland surfaces)."""
     try:
