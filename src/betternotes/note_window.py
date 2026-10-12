@@ -9,6 +9,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 from betternotes.auto_save import AutoSave
 from betternotes.colors import COLOR_NAMES
 from betternotes.constants import APP_ID
+from betternotes.i18n import _
 from betternotes.rich_text_serializer import (
     TAG_NAMES,
     deserialize_to_buffer,
@@ -30,7 +31,7 @@ class NoteWindow(Adw.Window):
         self._updating_toolbar = False
 
         self.set_default_size(400, 500)
-        self.set_title(note.title or 'Untitled Note')
+        self.set_title(note.title or _('Untitled Note'))
 
         self._build_ui()
         self._load_note()
@@ -137,7 +138,7 @@ xlib.XCloseDisplay(dpy)
         # Color picker menu
         color_btn = Gtk.MenuButton(
             icon_name='preferences-color-symbolic',
-            tooltip_text='Change Color',
+            tooltip_text=_('Change Color'),
         )
         color_popover = self._build_color_popover()
         color_btn.set_popover(color_popover)
@@ -146,7 +147,7 @@ xlib.XCloseDisplay(dpy)
         # Trash button
         trash_btn = Gtk.Button(
             icon_name='user-trash-symbolic',
-            tooltip_text='Move to Trash',
+            tooltip_text=_('Move to Trash'),
         )
         trash_btn.connect('clicked', self._on_trash)
         self._header.pack_end(trash_btn)
@@ -154,16 +155,21 @@ xlib.XCloseDisplay(dpy)
         # Tags button
         tags_btn = Gtk.Button(
             icon_name='tag-symbolic',
-            tooltip_text='Manage Tags',
+            tooltip_text=_('Manage Tags'),
         )
         tags_btn.connect('clicked', self._on_manage_tags)
         self._header.pack_end(tags_btn)
+
+        format_btn = Gtk.Button(icon_name='format-text-bold-symbolic',
+                                tooltip_text=_('Show formatting toolbar'))
+        format_btn.connect('clicked', self._toggle_format_toolbar)
+        self._header.pack_end(format_btn)
 
         main_box.append(self._header)
 
         # Title entry
         self._title_entry = Gtk.Entry(
-            placeholder_text='Note title...',
+            placeholder_text=_('Note title...'),
         )
         self._title_entry.add_css_class('note-title-entry')
         self._title_entry.connect('changed', self._on_content_changed)
@@ -172,8 +178,11 @@ xlib.XCloseDisplay(dpy)
         # Rich text toolbar
         self._toolbar = RichTextToolbar()
         self._toolbar.connect('format-toggled', self._on_format_toggled)
+        self._toolbar_sep = Gtk.Separator()
+        self._toolbar.set_visible(self._format_visible())
+        self._toolbar_sep.set_visible(self._format_visible())
         main_box.append(self._toolbar)
-        main_box.append(Gtk.Separator())
+        main_box.append(self._toolbar_sep)
 
         # Text view
         scrolled = Gtk.ScrolledWindow(
@@ -202,6 +211,18 @@ xlib.XCloseDisplay(dpy)
         main_box.append(self._tags_bar)
 
         self.set_content(main_box)
+
+    def _format_visible(self):
+        settings = self._app._get_settings()
+        return settings.get_boolean('show-format-toolbar') if settings else False
+
+    def _toggle_format_toolbar(self, button):
+        visible = not self._toolbar.get_visible()
+        self._toolbar.set_visible(visible)
+        self._toolbar_sep.set_visible(visible)
+        settings = self._app._get_settings()
+        if settings:
+            settings.set_boolean('show-format-toolbar', visible)
 
     def _build_color_popover(self):
         popover = Gtk.Popover()
@@ -250,7 +271,7 @@ xlib.XCloseDisplay(dpy)
     def _save_note(self):
         title = self._title_entry.get_text()
         content = serialize_buffer(self._buffer)
-        self.set_title(title or 'Untitled Note')
+        self.set_title(title or _('Untitled Note'))
         self._note.title = title
         self._note.content = content
         self._app.store.update_note(
@@ -335,10 +356,10 @@ xlib.XCloseDisplay(dpy)
 
     def _on_manage_tags(self, btn):
         dialog = Adw.AlertDialog(
-            heading='Manage Tags',
-            body='Enter tags separated by commas:',
+            heading=_('Manage Tags'),
+            body=_('Enter tags separated by commas:'),
         )
-        dialog.add_response('cancel', 'Cancel')
+        dialog.add_response('cancel', _('Cancel'))
         dialog.add_response('save', 'Save')
         dialog.set_response_appearance('save', Adw.ResponseAppearance.SUGGESTED)
 
