@@ -13,14 +13,26 @@ window._plan_add(None)
 item = window._plan_items[0]
 window._plan_widgets[item['id']][1].set_text('Test checkbox item')
 window._plan_finish_edit(window._plan_widgets[item['id']][1], item['id'])
+assert not window._plan_widgets[item['id']][1].get_visible(), 'Editor should leave on Enter'
+window._plan_start_edit(None, item['id'])
+assert window._plan_widgets[item['id']][1].get_visible()
+window._plan_finish_edit(None, item['id'])
+assert not window._plan_widgets[item['id']][1].get_visible()
 row = window._plan_box.get_first_child()
 checkbox = row.get_first_child()
 checkbox.set_active(True)
 assert window._plan_items[0]['done'] is True
 assert '<s>' in window._plan_widgets[item['id']][0].get_label()
+assert window._plan_box.get_first_child().has_css_class('plan-item-done')
 window._plan_add(None)
-window._plan_move(None, window._plan_items[1]['id'], -1)
+window._plan_drop(None, window._plan_items[1]['id'], 0, 0, window._plan_items[0]['id'])
 assert window._plan_items[0]['text'] == ''
+window._plan_widgets[window._plan_items[0]['id']][1].set_text('Dragged item')
+window._plan_finish_edit(None, window._plan_items[0]['id'])
+window._plan_fold.set_active(True)
+assert window._plan_fold.get_active()
+assert window._plan_box.get_first_child().get_next_sibling() is None
+window._plan_fold.set_active(False)
 window._save_note()
 stored = app.store.get_note(note.id)
 assert stored.kind == 'plan'
