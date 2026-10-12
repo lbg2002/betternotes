@@ -63,6 +63,8 @@ ZH = {
   "Move down": "下移",
   "Delete task": "删除任务",
   "Completed {done}/{total}": "已完成 {done}/{total}",
+  "Hide completed": "收起已完成",
+  "Click to edit · drag to reorder": "点击修改 · 拖动排序",
   "Formatting": "文本格式"
 }
 
