@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Small optional UI translation layer (system/English/zh_CN)."""
+import locale
+from gi.repository import Gio
+from betternotes.constants import APP_ID
+
+ZH = {
+  "Preferences": "首选项",
+  "General": "常规",
+  "Appearance": "外观",
+  "Default Note Color": "默认便签颜色",
+  "Trash": "回收站",
+  "Auto-delete after (days)": "自动删除天数",
+  "Trashed notes are permanently deleted after this many days": "回收站中的便签将在指定天数后永久删除",
+  "Keyboard Shortcuts": "快捷键",
+  "About BetterNotes": "关于 BetterNotes",
+  "Cancel": "取消",
+  "Select All": "全选",
+  "Search notes...": "搜索便签…",
+  "No Notes Yet": "还没有便签",
+  "Press + or Ctrl+N to create your first note": "点击 + 或按 Ctrl+N 创建第一条便签",
+  "Items in trash are deleted after 30 days": "回收站中的便签将在 30 天后删除",
+  "Empty Trash": "清空回收站",
+  "Trash is Empty": "回收站为空",
+  "Deleted notes will appear here": "删除的便签会显示在这里",
+  "Notes": "便签",
+  "Move to Trash": "移至回收站",
+  "Restore": "恢复",
+  "Delete Permanently": "永久删除",
+  "All": "全部",
+  "Delete Tag": "删除标签",
+  "Note moved to trash": "已移至回收站",
+  "Note restored": "便签已恢复",
+  "Undo": "撤销",
+  "Empty Trash?": "清空回收站？",
+  "All trashed notes will be permanently deleted.": "回收站中的全部便签将被永久删除。",
+  "This action cannot be undone.": "此操作无法撤销。",
+  "Delete": "删除",
+  "Untitled Note": "未命名便签",
+  "Change Color": "更改颜色",
+  "Manage Tags": "管理标签",
+  "Note title...": "便签标题…",
+  "Enter tags separated by commas:": "输入标签，以英文逗号分隔：",
+  "Save": "保存",
+  "Bullet List": "项目符号列表",
+  "Open": "打开",
+  "New Note (Ctrl+N)": "新建便签 (Ctrl+N)",
+  "Language": "界面语言",
+  "Follow system": "跟随系统",
+  "Chinese (Simplified)": "简体中文",
+  "English": "英文",
+  "Restart to apply language changes": "重新启动应用以应用语言设置",
+  "Compact mode": "紧凑模式",
+  "Show formatting toolbar": "显示格式工具栏",
+  "New note": "新建便签",
+  "New plan": "新建计划",
+  "Create note or plan": "新建便签或计划",
+  "Add task": "添加任务",
+  "New task": "新任务",
+  "Edit task": "编辑任务",
+  "Toggle completed": "切换完成状态",
+  "Move up": "上移",
+  "Move down": "下移",
+  "Delete task": "删除任务",
+  "Completed {done}/{total}": "已完成 {done}/{total}",
+  "Formatting": "文本格式"
+}
+
+def language():
+    src = Gio.SettingsSchemaSource.get_default()
+    choice = 'system'
+    if src and src.lookup(APP_ID, True):
+        choice = Gio.Settings.new(APP_ID).get_string('ui-language')
+    if choice == 'system':
+        choice = (locale.getlocale()[0] or '').lower()
+    return choice
+
+def _(message):
+    return ZH.get(message, message) if language().lower().replace('-', '_').startswith('zh') else message

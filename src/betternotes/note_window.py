@@ -9,6 +9,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 from betternotes.auto_save import AutoSave
 from betternotes.colors import COLOR_NAMES
 from betternotes.constants import APP_ID
+from betternotes.i18n import _
 from betternotes.rich_text_serializer import (
     TAG_NAMES,
     deserialize_to_buffer,
@@ -16,6 +17,7 @@ from betternotes.rich_text_serializer import (
     _ensure_tags,
 )
 from betternotes.rich_text_toolbar import RichTextToolbar
+from betternotes.plan import new_item, parse_items, serialize_items
 
 
 class NoteWindow(Adw.Window):
@@ -29,8 +31,8 @@ class NoteWindow(Adw.Window):
         self._note = note
         self._updating_toolbar = False
 
-        self.set_default_size(400, 500)
-        self.set_title(note.title or 'Untitled Note')
+        self.set_default_size(440 if note.kind == 'plan' else 400, 500)
+        self.set_title(note.title or _('Untitled Note'))
 
         self._build_ui()
         self._load_note()
@@ -137,7 +139,7 @@ xlib.XCloseDisplay(dpy)
         # Color picker menu
         color_btn = Gtk.MenuButton(
             icon_name='preferences-color-symbolic',
-            tooltip_text='Change Color',
+            tooltip_text=_('Change Color'),
         )
         color_popover = self._build_color_popover()
         color_btn.set_popover(color_popover)
@@ -146,7 +148,7 @@ xlib.XCloseDisplay(dpy)
         # Trash button
         trash_btn = Gtk.Button(
             icon_name='user-trash-symbolic',
-            tooltip_text='Move to Trash',
+            tooltip_text=_('Move to Trash'),
         )
         trash_btn.connect('clicked', self._on_trash)
         self._header.pack_end(trash_btn)
@@ -154,43 +156,52 @@ xlib.XCloseDisplay(dpy)
         # Tags button
         tags_btn = Gtk.Button(
             icon_name='tag-symbolic',
-            tooltip_text='Manage Tags',
+            tooltip_text=_('Manage Tags'),
         )
         tags_btn.connect('clicked', self._on_manage_tags)
         self._header.pack_end(tags_btn)
+
+        if self._note.kind == 'note':
+            format_btn = Gtk.Button(icon_name='format-text-bold-symbolic',
+                                    tooltip_text=_('Show formatting toolbar'))
+            format_btn.connect('clicked', self._toggle_format_toolbar)
+            self._header.pack_end(format_btn)
 
         main_box.append(self._header)
 
         # Title entry
         self._title_entry = Gtk.Entry(
-            placeholder_text='Note title...',
+            placeholder_text=_('Note title...'),
         )
         self._title_entry.add_css_class('note-title-entry')
         self._title_entry.connect('changed', self._on_content_changed)
         main_box.append(self._title_entry)
 
-        # Rich text toolbar
-        self._toolbar = RichTextToolbar()
-        self._toolbar.connect('format-toggled', self._on_format_toggled)
-        main_box.append(self._toolbar)
-        main_box.append(Gtk.Separator())
+        if self._note.kind == 'plan':
+            self._build_plan_ui(main_box)
+        else:
+            # Rich text editing is unchanged for old notes.
+            self._toolbar = RichTextToolbar()
+            self._toolbar.connect('format-toggled', self._on_format_toggled)
+            self._toolbar_sep = Gtk.Separator()
+            self._toolbar.set_visible(self._format_visible())
+            self._toolbar_sep.set_visible(self._format_visible())
+            main_box.append(self._toolbar)
+            main_box.append(self._toolbar_sep)
 
-        # Text view
-        scrolled = Gtk.ScrolledWindow(
-            vexpand=True, hexpand=True,
-        )
-        self._text_view = Gtk.TextView(
-            wrap_mode=Gtk.WrapMode.WORD_CHAR,
-            left_margin=12, right_margin=12,
-            top_margin=8, bottom_margin=8,
-        )
-        self._text_view.add_css_class('note-text-view')
-        self._buffer = self._text_view.get_buffer()
-        _ensure_tags(self._buffer)
-        self._buffer.connect('changed', self._on_content_changed)
-        self._buffer.connect('mark-set', self._on_cursor_moved)
-        scrolled.set_child(self._text_view)
-        main_box.append(scrolled)
+            scrolled = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
+            self._text_view = Gtk.TextView(
+                wrap_mode=Gtk.WrapMode.WORD_CHAR,
+                left_margin=12, right_margin=12,
+                top_margin=8, bottom_margin=8,
+            )
+            self._text_view.add_css_class('note-text-view')
+            self._buffer = self._text_view.get_buffer()
+            _ensure_tags(self._buffer)
+            self._buffer.connect('changed', self._on_content_changed)
+            self._buffer.connect('mark-set', self._on_cursor_moved)
+            scrolled.set_child(self._text_view)
+            main_box.append(scrolled)
 
         # Tags display bar
         self._tags_bar = Gtk.FlowBox(
@@ -202,6 +213,165 @@ xlib.XCloseDisplay(dpy)
         main_box.append(self._tags_bar)
 
         self.set_content(main_box)
+
+    def _build_plan_ui(self, parent):
+        self._plan_items = []
+        self._plan_widgets = {}
+        self._plan_progress = Gtk.Label(xalign=0)
+        self._plan_progress.add_css_class('plan-progress')
+        parent.append(self._plan_progress)
+
+        scroll = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
+        self._plan_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        self._plan_box.add_css_class('plan-items')
+        scroll.set_child(self._plan_box)
+        parent.append(scroll)
+
+        add_btn = Gtk.Button(label=_('Add task'))
+        add_btn.add_css_class('suggested-action')
+        add_btn.add_css_class('plan-add')
+        add_btn.connect('clicked', self._plan_add)
+        parent.append(add_btn)
+
+    def _plan_find(self, uid):
+        return next((item for item in self._plan_items if item['id'] == uid), None)
+
+    def _plan_markup(self, item):
+        escaped = GLib.markup_escape_text(item['text'] or _('New task'))
+        return '<s>' + escaped + '</s>' if item['done'] else escaped
+
+    def _plan_progress_update(self):
+        done = sum(bool(item['done']) for item in self._plan_items)
+        total = len(self._plan_items)
+        self._plan_progress.set_label(
+            _('Completed {done}/{total}').format(done=done, total=total)
+        )
+
+    def _plan_refresh(self):
+        child = self._plan_box.get_first_child()
+        while child is not None:
+            nxt = child.get_next_sibling()
+            self._plan_box.remove(child)
+            child = nxt
+        self._plan_widgets = {}
+
+        for pos, item in enumerate(self._plan_items):
+            uid = item['id']
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+            row.add_css_class('plan-item')
+
+            check = Gtk.CheckButton()
+            check.set_active(item['done'])
+            check.set_tooltip_text(_('Toggle completed'))
+            check.connect('toggled', self._plan_toggle, uid)
+            row.append(check)
+
+            label = Gtk.Label(xalign=0, hexpand=True, wrap=True)
+            label.set_markup(self._plan_markup(item))
+            label.add_css_class('plan-label')
+            row.append(label)
+
+            entry = Gtk.Entry(text=item['text'], hexpand=True)
+            entry.set_placeholder_text(_('New task'))
+            entry.set_visible(False)
+            entry.connect('changed', self._plan_text_changed, uid, label)
+            entry.connect('activate', self._plan_finish_edit, uid)
+            row.append(entry)
+            self._plan_widgets[uid] = (label, entry)
+
+            edit = Gtk.Button(icon_name='document-edit-symbolic')
+            edit.set_tooltip_text(_('Edit task'))
+            edit.connect('clicked', self._plan_start_edit, uid)
+            row.append(edit)
+
+            up = Gtk.Button(icon_name='go-up-symbolic')
+            up.set_tooltip_text(_('Move up'))
+            up.set_sensitive(pos > 0)
+            up.connect('clicked', self._plan_move, uid, -1)
+            row.append(up)
+
+            down = Gtk.Button(icon_name='go-down-symbolic')
+            down.set_tooltip_text(_('Move down'))
+            down.set_sensitive(pos + 1 < len(self._plan_items))
+            down.connect('clicked', self._plan_move, uid, 1)
+            row.append(down)
+
+            delete = Gtk.Button(icon_name='edit-delete-symbolic')
+            delete.set_tooltip_text(_('Delete task'))
+            delete.connect('clicked', self._plan_delete, uid)
+            row.append(delete)
+            self._plan_box.append(row)
+        self._plan_progress_update()
+
+    def _plan_toggle(self, check, uid):
+        item = self._plan_find(uid)
+        if item is None:
+            return
+        item['done'] = check.get_active()
+        widgets = self._plan_widgets.get(uid)
+        if widgets:
+            widgets[0].set_markup(self._plan_markup(item))
+        self._plan_progress_update()
+        self._on_content_changed()
+
+    def _plan_text_changed(self, entry, uid, label):
+        item = self._plan_find(uid)
+        if item is not None:
+            item['text'] = entry.get_text()
+            label.set_markup(self._plan_markup(item))
+            self._on_content_changed()
+
+    def _plan_start_edit(self, button, uid):
+        widgets = self._plan_widgets.get(uid)
+        if widgets:
+            label, entry = widgets
+            label.set_visible(False)
+            entry.set_visible(True)
+            entry.grab_focus()
+            entry.select_region(0, -1)
+
+    def _plan_finish_edit(self, entry, uid):
+        widgets = self._plan_widgets.get(uid)
+        if widgets:
+            label, field = widgets
+            field.set_visible(False)
+            label.set_visible(True)
+
+    def _plan_add(self, button):
+        item = new_item()
+        self._plan_items.append(item)
+        self._plan_refresh()
+        self._on_content_changed()
+        self._plan_start_edit(None, item['id'])
+
+    def _plan_delete(self, button, uid):
+        self._plan_items = [item for item in self._plan_items if item['id'] != uid]
+        self._plan_refresh()
+        self._on_content_changed()
+
+    def _plan_move(self, button, uid, direction):
+        index = next((i for i, item in enumerate(self._plan_items)
+                      if item['id'] == uid), -1)
+        target = index + direction
+        if index < 0 or not (0 <= target < len(self._plan_items)):
+            return
+        self._plan_items[index], self._plan_items[target] = (
+            self._plan_items[target], self._plan_items[index]
+        )
+        self._plan_refresh()
+        self._on_content_changed()
+
+    def _format_visible(self):
+        settings = self._app._get_settings()
+        return settings.get_boolean('show-format-toolbar') if settings else False
+
+    def _toggle_format_toolbar(self, button):
+        visible = not self._toolbar.get_visible()
+        self._toolbar.set_visible(visible)
+        self._toolbar_sep.set_visible(visible)
+        settings = self._app._get_settings()
+        if settings:
+            settings.set_boolean('show-format-toolbar', visible)
 
     def _build_color_popover(self):
         popover = Gtk.Popover()
@@ -226,7 +396,10 @@ xlib.XCloseDisplay(dpy)
 
     def _load_note(self):
         self._title_entry.set_text(self._note.title or '')
-        if self._note.content:
+        if self._note.kind == 'plan':
+            self._plan_items = parse_items(self._note.content)
+            self._plan_refresh()
+        elif self._note.content:
             deserialize_to_buffer(self._buffer, self._note.content)
         self._update_tags_bar()
 
@@ -249,8 +422,9 @@ xlib.XCloseDisplay(dpy)
 
     def _save_note(self):
         title = self._title_entry.get_text()
-        content = serialize_buffer(self._buffer)
-        self.set_title(title or 'Untitled Note')
+        content = (serialize_items(self._plan_items) if self._note.kind == 'plan'
+                   else serialize_buffer(self._buffer))
+        self.set_title(title or _('Untitled Note'))
         self._note.title = title
         self._note.content = content
         self._app.store.update_note(
@@ -335,10 +509,10 @@ xlib.XCloseDisplay(dpy)
 
     def _on_manage_tags(self, btn):
         dialog = Adw.AlertDialog(
-            heading='Manage Tags',
-            body='Enter tags separated by commas:',
+            heading=_('Manage Tags'),
+            body=_('Enter tags separated by commas:'),
         )
-        dialog.add_response('cancel', 'Cancel')
+        dialog.add_response('cancel', _('Cancel'))
         dialog.add_response('save', 'Save')
         dialog.set_response_appearance('save', Adw.ResponseAppearance.SUGGESTED)
 
@@ -385,6 +559,8 @@ xlib.XCloseDisplay(dpy)
             self._tags_bar.append(label)
 
     def _setup_actions(self):
+        if self._note.kind == 'plan':
+            return
         action_group = Gio.SimpleActionGroup()
         actions = [
             ('bold', self._action_format, 'bold'),
@@ -422,6 +598,8 @@ xlib.XCloseDisplay(dpy)
         self._on_content_changed()
 
     def _setup_key_controller(self):
+        if self._note.kind == 'plan':
+            return
         key_controller = Gtk.EventControllerKey()
         key_controller.connect('key-pressed', self._on_key_pressed)
         self._text_view.add_controller(key_controller)

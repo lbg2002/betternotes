@@ -5,6 +5,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
+from betternotes.i18n import _
 
 CARD_SIZE = 200
 PREVIEW_MAX_CHARS = 80
@@ -53,7 +54,9 @@ class NoteCard(Gtk.Overlay):
         inner.add_css_class('note-card-content')
 
         # Title
-        title = note.title or 'Untitled Note'
+        title = note.title or _('Untitled Note')
+        if note.kind == 'plan':
+            title = '☑ ' + title
         title_label = Gtk.Label(
             label=title,
             xalign=0,
@@ -153,11 +156,11 @@ class NoteCard(Gtk.Overlay):
     def _setup_context_menu(self):
         menu = Gio.Menu()
         if self._is_trash:
-            menu.append('Restore', 'card.restore')
-            menu.append('Delete Permanently', 'card.delete')
+            menu.append(_('Restore'), 'card.restore')
+            menu.append(_('Delete Permanently'), 'card.delete')
         else:
-            menu.append('Open', 'card.open')
-            menu.append('Move to Trash', 'card.trash')
+            menu.append(_('Open'), 'card.open')
+            menu.append(_('Move to Trash'), 'card.trash')
 
         action_group = Gio.SimpleActionGroup()
 

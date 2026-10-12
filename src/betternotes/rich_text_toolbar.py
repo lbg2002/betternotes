@@ -5,6 +5,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 
 from gi.repository import Adw, GObject, Gtk
+from betternotes.i18n import _
 
 
 class RichTextToolbar(Gtk.Box):
@@ -47,7 +48,7 @@ class RichTextToolbar(Gtk.Box):
         # Bullet list
         btn = Gtk.ToggleButton(
             icon_name='view-list-symbolic',
-            tooltip_text='Bullet List',
+            tooltip_text=_('Bullet List'),
         )
         btn.connect('toggled', self._on_toggled, 'bullet')
         self.append(btn)

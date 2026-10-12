@@ -7,6 +7,7 @@ gi.require_version('Adw', '1')
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from betternotes.constants import APP_ID
+from betternotes.i18n import _
 from betternotes.note_card import NoteCard
 
 
@@ -24,7 +25,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._selection_mode = False
         self._selected_ids = set()
 
-        self.set_title('BetterNotes')
+        self.set_title('PinPlan · 轻笺')
         self.set_default_size(900, 650)
         self.set_icon_name(APP_ID)
 
@@ -53,9 +54,11 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Menu
         menu = Gio.Menu()
-        menu.append('Keyboard Shortcuts', 'app.shortcuts')
-        menu.append('Preferences', 'app.preferences')
-        menu.append('About BetterNotes', 'app.about')
+        menu.append(_('New note'), 'app.new-note')
+        menu.append(_('New plan'), 'app.new-plan')
+        menu.append(_('Keyboard Shortcuts'), 'app.shortcuts')
+        menu.append(_('Preferences'), 'app.preferences')
+        menu.append(_('About BetterNotes'), 'app.about')
 
         menu_btn = Gtk.MenuButton(
             icon_name='open-menu-symbolic',
@@ -70,14 +73,14 @@ class MainWindow(Adw.ApplicationWindow):
         self._selection_header.set_visible(False)
         self._selection_header.set_show_back_button(False)
 
-        cancel_btn = Gtk.Button(label='Cancel')
+        cancel_btn = Gtk.Button(label=_('Cancel'))
         cancel_btn.connect('clicked', lambda b: self._exit_selection_mode())
         self._selection_header.pack_start(cancel_btn)
 
         self._selection_count_label = Gtk.Label(label='0 selected')
         self._selection_header.set_title_widget(self._selection_count_label)
 
-        select_all_btn = Gtk.Button(label='Select All')
+        select_all_btn = Gtk.Button(label=_('Select All'))
         select_all_btn.connect('clicked', lambda b: self._select_all())
         self._selection_header.pack_end(select_all_btn)
 
@@ -86,7 +89,7 @@ class MainWindow(Adw.ApplicationWindow):
         # Search bar
         self._search_bar = Gtk.SearchBar()
         self._search_entry = Gtk.SearchEntry(
-            placeholder_text='Search notes...',
+            placeholder_text=_('Search notes...'),
         )
         self._search_entry.add_css_class('search-entry')
         self._search_entry.connect('search-changed', self._on_search_changed)
@@ -135,8 +138,8 @@ class MainWindow(Adw.ApplicationWindow):
         # Empty state
         self._empty_state = Adw.StatusPage(
             icon_name='document-new-symbolic',
-            title='No Notes Yet',
-            description='Press + or Ctrl+N to create your first note',
+            title=_('No Notes Yet'),
+            description=_('Press + or Ctrl+N to create your first note'),
         )
         self._empty_state.add_css_class('empty-state')
 
@@ -155,12 +158,12 @@ class MainWindow(Adw.ApplicationWindow):
         )
         self._trash_banner.add_css_class('trash-banner')
         trash_label = Gtk.Label(
-            label='Items in trash are deleted after 30 days',
+            label=_('Items in trash are deleted after 30 days'),
             hexpand=True,
             xalign=0,
         )
         self._trash_banner.append(trash_label)
-        empty_trash_btn = Gtk.Button(label='Empty Trash')
+        empty_trash_btn = Gtk.Button(label=_('Empty Trash'))
         empty_trash_btn.add_css_class('destructive-action')
         empty_trash_btn.connect('clicked', self._on_empty_trash)
         self._trash_banner.append(empty_trash_btn)
@@ -184,8 +187,8 @@ class MainWindow(Adw.ApplicationWindow):
 
         self._trash_empty_state = Adw.StatusPage(
             icon_name='user-trash-symbolic',
-            title='Trash is Empty',
-            description='Deleted notes will appear here',
+            title=_('Trash is Empty'),
+            description=_('Deleted notes will appear here'),
         )
 
         self._trash_stack = Gtk.Stack()
@@ -194,8 +197,8 @@ class MainWindow(Adw.ApplicationWindow):
         trash_page.append(self._trash_stack)
 
         # Add to view stack
-        self._view_stack.add_titled(notes_page, 'notes', 'Notes')
-        self._view_stack.add_titled(trash_page, 'trash', 'Trash')
+        self._view_stack.add_titled(notes_page, 'notes', _('Notes'))
+        self._view_stack.add_titled(trash_page, 'trash', _('Trash'))
         self._view_stack.connect('notify::visible-child', self._on_view_changed)
 
         self._toolbar_view.set_content(self._view_stack)
@@ -208,9 +211,13 @@ class MainWindow(Adw.ApplicationWindow):
         overlay = Gtk.Overlay()
         overlay.set_child(self._toast_overlay)
 
-        fab = Gtk.Button(
+        new_menu = Gio.Menu()
+        new_menu.append(_('New note'), 'app.new-note')
+        new_menu.append(_('New plan'), 'app.new-plan')
+        fab = Gtk.MenuButton(
             icon_name='list-add-symbolic',
-            tooltip_text='New Note (Ctrl+N)',
+            tooltip_text=_('Create note or plan'),
+            menu_model=new_menu,
         )
         fab.add_css_class('fab')
         fab.add_css_class('suggested-action')
@@ -219,7 +226,6 @@ class MainWindow(Adw.ApplicationWindow):
         fab.set_valign(Gtk.Align.END)
         fab.set_margin_end(24)
         fab.set_margin_bottom(24)
-        fab.connect('clicked', lambda b: self._app.activate_action('new-note'))
         overlay.add_overlay(fab)
         self._fab = fab
 
@@ -235,20 +241,20 @@ class MainWindow(Adw.ApplicationWindow):
         self._selection_bar.set_visible(False)
 
         # Notes view action: Move to Trash
-        self._sel_trash_btn = Gtk.Button(label='Move to Trash')
+        self._sel_trash_btn = Gtk.Button(label=_('Move to Trash'))
         self._sel_trash_btn.add_css_class('destructive-action')
         self._sel_trash_btn.add_css_class('pill')
         self._sel_trash_btn.connect('clicked', self._on_bulk_trash)
         self._selection_bar.append(self._sel_trash_btn)
 
         # Trash view actions: Restore, Delete Permanently
-        self._sel_restore_btn = Gtk.Button(label='Restore')
+        self._sel_restore_btn = Gtk.Button(label=_('Restore'))
         self._sel_restore_btn.add_css_class('suggested-action')
         self._sel_restore_btn.add_css_class('pill')
         self._sel_restore_btn.connect('clicked', self._on_bulk_restore)
         self._selection_bar.append(self._sel_restore_btn)
 
-        self._sel_delete_btn = Gtk.Button(label='Delete Permanently')
+        self._sel_delete_btn = Gtk.Button(label=_('Delete Permanently'))
         self._sel_delete_btn.add_css_class('destructive-action')
         self._sel_delete_btn.add_css_class('pill')
         self._sel_delete_btn.connect('clicked', self._on_bulk_delete)
@@ -449,7 +455,7 @@ class MainWindow(Adw.ApplicationWindow):
         count = len(ids)
         self._show_toast(
             f'{count} note{"s" if count != 1 else ""} moved to trash',
-            'Undo', self._undo_bulk_trash, ids,
+            _('Undo'), self._undo_bulk_trash, ids,
         )
 
     def _undo_bulk_trash(self, note_ids):
@@ -473,9 +479,9 @@ class MainWindow(Adw.ApplicationWindow):
         count = len(ids)
         dialog = Adw.AlertDialog(
             heading=f'Delete {count} Note{"s" if count != 1 else ""} Permanently?',
-            body='This action cannot be undone.',
+            body=_('This action cannot be undone.'),
         )
-        dialog.add_response('cancel', 'Cancel')
+        dialog.add_response('cancel', _('Cancel'))
         dialog.add_response('delete', 'Delete')
         dialog.set_response_appearance('delete', Adw.ResponseAppearance.DESTRUCTIVE)
         dialog.connect('response', self._on_bulk_delete_confirmed, ids)
@@ -582,7 +588,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._tag_scroll.set_visible(True)
 
         # "All" button
-        all_btn = Gtk.ToggleButton(label='All')
+        all_btn = Gtk.ToggleButton(label=_('All'))
         all_btn.add_css_class('tag-chip')
         all_btn.set_active(self._current_tag_filter is None)
         all_btn.connect('toggled', self._on_tag_filter, None)
@@ -617,7 +623,7 @@ class MainWindow(Adw.ApplicationWindow):
         popover = Gtk.Popover()
         popover.set_parent(btn)
 
-        delete_btn = Gtk.Button(label='Delete Tag')
+        delete_btn = Gtk.Button(label=_('Delete Tag'))
         delete_btn.add_css_class('flat')
         delete_btn.connect('clicked', lambda b: (popover.popdown(), self._on_delete_tag(tag_name)))
         popover.set_child(delete_btn)
@@ -630,7 +636,7 @@ class MainWindow(Adw.ApplicationWindow):
             heading=f'Delete Tag \u2018{tag_name}\u2019?',
             body='This will remove the tag from all notes.',
         )
-        dialog.add_response('cancel', 'Cancel')
+        dialog.add_response('cancel', _('Cancel'))
         dialog.add_response('delete', 'Delete')
         dialog.set_response_appearance('delete', Adw.ResponseAppearance.DESTRUCTIVE)
         dialog.connect('response', self._on_delete_tag_confirmed, tag_name)
@@ -651,19 +657,19 @@ class MainWindow(Adw.ApplicationWindow):
         self._app.store.trash_note(note_id)
         self._app.close_note_window(note_id)
         self._app.emit('note-trashed', note_id)
-        self._show_toast('Note moved to trash', 'Undo', self._undo_trash, note_id)
+        self._show_toast(_('Note moved to trash'), _('Undo'), self._undo_trash, note_id)
 
     def _on_note_restore_requested(self, card, note_id):
         self._app.store.restore_note(note_id)
         self._app.emit('note-restored', note_id)
-        self._show_toast('Note restored')
+        self._show_toast(_('Note restored'))
 
     def _on_note_delete_requested(self, card, note_id):
         dialog = Adw.AlertDialog(
             heading='Delete Note Permanently?',
-            body='This action cannot be undone.',
+            body=_('This action cannot be undone.'),
         )
-        dialog.add_response('cancel', 'Cancel')
+        dialog.add_response('cancel', _('Cancel'))
         dialog.add_response('delete', 'Delete')
         dialog.set_response_appearance('delete', Adw.ResponseAppearance.DESTRUCTIVE)
         dialog.connect('response', self._on_delete_confirmed, note_id)
@@ -676,11 +682,11 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_empty_trash(self, btn):
         dialog = Adw.AlertDialog(
-            heading='Empty Trash?',
-            body='All trashed notes will be permanently deleted.',
+            heading=_('Empty Trash?'),
+            body=_('All trashed notes will be permanently deleted.'),
         )
-        dialog.add_response('cancel', 'Cancel')
-        dialog.add_response('empty', 'Empty Trash')
+        dialog.add_response('cancel', _('Cancel'))
+        dialog.add_response('empty', _('Empty Trash'))
         dialog.set_response_appearance('empty', Adw.ResponseAppearance.DESTRUCTIVE)
         dialog.connect('response', self._on_empty_trash_confirmed)
         dialog.present(self)

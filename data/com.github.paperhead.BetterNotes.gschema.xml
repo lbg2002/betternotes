@@ -23,5 +23,13 @@
       <default>false</default>
       <summary>Main window maximized state</summary>
     </key>
+    <key name="ui-language" type="s">
+      <default>'system'</default>
+      <summary>UI language: system, zh_CN, en</summary>
+    </key>
+    <key name="show-format-toolbar" type="b">
+      <default>false</default>
+      <summary>Display formatting toolbar in note windows</summary>
+    </key>
   </schema>
 </schemalist>

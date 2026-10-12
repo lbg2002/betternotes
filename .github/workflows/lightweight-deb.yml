@@ -1,0 +1,78 @@
+name: PinPlan lightweight DEB CI
+on:
+  push:
+    branches: [main, feature/zh-cn-compact-lightweight, feature/pinplan-checklists]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-gi libgtk-4-dev libadwaita-1-dev meson ninja-build gettext libglib2.0-dev-bin gir1.2-gtk-4.0 gir1.2-adw-1 dpkg-dev desktop-file-utils xvfb dbus-x11
+      - name: Validate Python and schema
+        run: |
+          python3 -m compileall -q src/betternotes
+          glib-compile-schemas --strict --dry-run data/
+          PYTHONPATH=src /usr/bin/python3 -m unittest discover -s tests -v
+      - name: GTK UI smoke test (Xvfb)
+        run: |
+          DATA_HOME="$(mktemp -d)"
+          XDG_DATA_HOME="$DATA_HOME" GDK_BACKEND=x11 PYTHONPATH=src xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/smoke_ui.py
+          rm -rf "$DATA_HOME"
+      - name: Install into package root
+        run: |
+          meson setup build --prefix=/usr
+          meson compile -C build
+          DESTDIR="$PWD/pkg" meson install -C build --no-rebuild
+      - name: Build thin DEB
+        run: |
+          mkdir -p pkg/DEBIAN
+          cat > pkg/DEBIAN/control <<'CONTROL'
+          Package: betternotes-lite
+          Version: 0.2.0+cn2
+          Architecture: all
+          Maintainer: Community Fork <noreply@github.com>
+          Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-gdkpixbuf-2.0
+          Conflicts: betternotes
+          Description: PinPlan lightweight bilingual sticky notes and checklists
+           GTK4 and Libadwaita sticky notes using distribution shared libraries.
+          CONTROL
+          # Do not ship redundant Python bytecode, caches or dev artefacts.
+          find pkg/usr -type d -name __pycache__ -prune -exec rm -rf {} +
+          find pkg/usr -type f -name '*.pyc' -delete
+          dpkg-deb --build --root-owner-group pkg betternotes-lite_0.2.0+cn2_all.deb
+          dpkg-deb --info betternotes-lite_0.2.0+cn2_all.deb
+          ls -lh *.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: betternotes-lite-deb
+          path: '*.deb'
+      - name: Publish experimental prerelease after successful branch build
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/pinplan-checklists') || (github.event_name == 'pull_request' && github.head_ref == 'feature/pinplan-checklists')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.2.0-cn2-rc1
+          target_commitish: ${{ github.event.pull_request.head.sha || github.sha }}
+          name: PinPlan Notes v0.2.0 (release candidate)
+          prerelease: true
+          draft: false
+          files: '*.deb'
+          body: |
+            Experimental pinned checklists, localized notes and lightweight build. CI compilation and
+            packaging passed; GNOME 50 / Ubuntu 26.04 graphical testing has not
+            yet been completed. Backup Snap data before trying this package.
+      - name: Create GitHub release on tagged builds
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: '*.deb'
+          generate_release_notes: true

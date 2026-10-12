@@ -3,16 +3,19 @@
   <id>com.github.paperhead.BetterNotes</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
-  <name>BetterNotes</name>
-  <summary>Sticky notes for your desktop</summary>
+  <name>PinPlan Notes</name>
+  <name xml:lang="zh_CN">轻笺 · PinPlan</name>
+  <summary>Pinned notes and checklists for Linux</summary>
+  <summary xml:lang="zh_CN">桌面便签与计划清单</summary>
   <description>
     <p>
-      BetterNotes is a full-featured sticky notes application for GNOME.
+      PinPlan Notes is a simple local-first sticky notes and checklist app for GNOME.
       Create colorful notes, organize them with tags, and find them
       instantly with full-text search.
     </p>
     <p>Features:</p>
     <ul>
+      <li>Pinned checklists with checkboxes, strikethrough, progress and manual ordering</li>
       <li>8 vibrant note colors</li>
       <li>Rich text editing (bold, italic, underline, strikethrough, bullet lists)</li>
       <li>Full-text search powered by SQLite FTS5</li>
@@ -23,9 +26,9 @@
     </ul>
   </description>
   <launchable type="desktop-id">com.github.paperhead.BetterNotes.desktop</launchable>
-  <url type="homepage">https://github.com/0xpaperhead/betternotes</url>
-  <url type="bugtracker">https://github.com/0xpaperhead/betternotes/issues</url>
-  <url type="vcs-browser">https://github.com/0xpaperhead/betternotes</url>
+  <url type="homepage">https://github.com/lbg2002/betternotes</url>
+  <url type="bugtracker">https://github.com/lbg2002/betternotes/issues</url>
+  <url type="vcs-browser">https://github.com/lbg2002/betternotes</url>
   <developer id="com.github.0xpaperhead">
     <name>0xpaperhead</name>
   </developer>
@@ -45,6 +48,11 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.2.0" date="2026-10-12">
+      <description>
+        <p>Community fork: localized lightweight notes and pinned checklists.</p>
+      </description>
+    </release>
     <release version="0.1.2" date="2026-03-16">
       <description>
         <p>Bug fixes:</p>

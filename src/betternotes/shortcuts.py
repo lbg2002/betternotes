@@ -3,6 +3,7 @@
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk
+from betternotes.i18n import _
 
 
 class ShortcutsWindow(Gtk.ShortcutsWindow):
@@ -15,8 +16,13 @@ class ShortcutsWindow(Gtk.ShortcutsWindow):
         # General group
         general = Gtk.ShortcutsGroup(title='General', visible=True)
         general.append(Gtk.ShortcutsShortcut(
-            title='New Note',
+            title=_('New note'),
             accelerator='<Control>n',
+            visible=True,
+        ))
+        general.append(Gtk.ShortcutsShortcut(
+            title=_('New plan'),
+            accelerator='<Control><Shift>n',
             visible=True,
         ))
         general.append(Gtk.ShortcutsShortcut(
