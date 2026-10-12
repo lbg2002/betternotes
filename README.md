@@ -21,6 +21,64 @@
 
 BetterNotes is a full-featured sticky notes application built with GTK4 and Libadwaita. Create colorful notes that stay on top of your desktop, organize them with tags, format your text, and find anything instantly with full-text search.
 
+## 中文精简版 / Chinese lightweight fork (experimental)
+
+> This fork is under development. **Do not replace a working Snap installation
+> until the CI package and manual desktop tests have passed.**
+
+### Features
+
+- Simplified Chinese/English/system-language selection in Preferences
+  (restart the app after a language change).
+- Compact sticky notes: formatting toolbar hidden by default. The formatting
+  button in the note header toggles it without deleting formatting or shortcuts.
+- Lightweight dependency-based Debian package. GTK4/Libadwaita/Python are
+  installed using your system package manager instead of bundled copies.
+- Original notes, tags, search, colors, and XWayland always-on-top retained.
+
+### Build on Ubuntu
+
+```bash
+sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 \
+  meson ninja-build libgtk-4-dev libadwaita-1-dev gettext \
+  libglib2.0-dev-bin
+meson setup build --prefix=/usr
+meson compile -C build
+```
+
+The `Lightweight DEB CI` workflow builds the dependency-based `.deb`.
+Its package size is not a measurement of total disk usage: required shared
+libraries installed by apt occupy additional space. No benchmark or Ubuntu
+26.04 graphical test is claimed yet.
+
+### Preserve note data
+
+Do **not** run Snap and this build simultaneously against a shared note DB.
+For a backup while BetterNotes is closed:
+
+```bash
+mkdir -p "$HOME/betternotes-backup"
+find "$HOME/snap/betternotes" "$HOME/.local/share/betternotes" \
+  -name 'notes.db*' -type f -print 2>/dev/null
+```
+
+Back up the directory containing your actual notes database, including
+`-wal` and `-shm` files, before migrating. Snap user data may be isolated,
+so installing the DEB will not automatically import Snap notes. Avoid copying
+a database while either application is writing to it.
+
+### Notes
+
+- Localization currently covers many common UI strings but is **not yet a
+  comprehensive audited translation**.
+- Language changes require restarting; existing open note windows do not
+  instantly retranslate.
+- GNOME native Wayland does not offer generic application-managed always-on-top;
+  the upstream XWayland strategy remains in place.
+- Follow the GPL-3.0-or-later license and the upstream copyright notices.
+
+---
+
 ## Features
 
 **8 Vibrant Colors** &mdash; Yellow, blue, green, pink, orange, purple, red, and teal. Each note gets its own colored window with matching light and dark mode variants.
