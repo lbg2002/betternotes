@@ -24,6 +24,7 @@ row = window._plan_box.get_first_child()
 checkbox = row.get_first_child()
 checkbox.set_active(True)
 assert window._plan_items[0]['done'] is True
+assert window._plan_progress_bar.get_fraction() == 1
 assert '<s>' in window._plan_widgets[item['id']][0].get_label()
 assert window._plan_box.get_first_child().has_css_class('plan-item-done')
 window._plan_add(None)
@@ -40,14 +41,54 @@ stored = app.store.get_note(note.id)
 assert stored.kind == 'plan'
 assert len(parse_items(stored.content)) == 2
 assert any(i['done'] for i in parse_items(stored.content))
-window._plan_delete(None, window._plan_items[0]['id'])
+removed_id = window._plan_items[0]['id']
+window._plan_delete(None, removed_id)
+assert window._plan_undo_button.get_visible()
 window._save_note()
 assert len(parse_items(app.store.get_note(note.id).content)) == 1
+window._plan_undo(None)
+assert window._plan_find(removed_id) is not None
+assert len(window._plan_items) == 2
+assert not window._plan_undo_button.get_visible()
+
+# Enter should commit text and open a new task, not keep the old row editing.
+window._plan_add(None)
+current_id = window._plan_items[-1]['id']
+field = window._plan_widgets[current_id][1]
+field.set_text('Write the paper')
+window._plan_enter(field, current_id)
+assert window._plan_find(current_id)['text'] == 'Write the paper'
+assert not window._plan_widgets[current_id][1].get_visible()
+assert len(window._plan_items) == 4
+assert window._plan_widgets[window._plan_items[-1]['id']][1].get_visible()
+# Blank trailing draft disappears when clicking out of the editor.
+window._plan_finish_edit(None, window._plan_items[-1]['id'])
+assert len(window._plan_items) == 3
+
+# The compact handle is a separate undecorated window with X11 topmost
+# handled by the original EWMH mechanism, preserving the original editor.
+settings = app._get_settings()
+settings.set_string('compact-shape', 'ball')
+window._collapse_to_compact()
+assert window._compact_window is not None
+assert window._compact_window._shape == 'ball'
+assert not window.get_visible()
+window._restore_from_compact()
+assert window._compact_window is None
+assert window.get_visible()
+settings.set_string('compact-shape', 'pill')
+window._collapse_to_compact()
+assert window._compact_window._shape == 'pill'
+window._restore_from_compact()
+assert window.get_visible()
 
 legacy = app.store.create_note(title='Old note', kind='note')
 note_window = NoteWindow(application=app, note=legacy)
 assert hasattr(note_window, '_text_view')
 note_window._save_note()
+note_window._collapse_to_compact()
+assert note_window._compact_window is not None
+note_window._restore_from_compact()
 
 # Global typography changes should affect already-open editor windows.
 settings = app._get_settings()
