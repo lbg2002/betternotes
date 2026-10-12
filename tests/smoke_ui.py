@@ -4,13 +4,31 @@ from betternotes.application import BetterNotesApp
 from betternotes.note_window import NoteWindow
 from betternotes.plan import parse_items
 from betternotes.preferences import PreferencesWindow
-from gi.repository import Pango
+from gi.repository import Pango, GLib
+import time
+
+
+def wait_for(predicate, seconds=3):
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        while GLib.MainContext.default().pending():
+            GLib.MainContext.default().iteration(False)
+        if predicate():
+            return True
+        time.sleep(0.02)
+    return predicate()
+
 
 app = BetterNotesApp()
 assert app.register(None), 'Unable to register GTK app'
 note = app.store.create_note(title='Test Plan', kind='plan', color='blue')
 window = NoteWindow(application=app, note=note)
+window.present()
+assert wait_for(lambda: window.get_surface() is not None)
 assert hasattr(window, '_plan_box')
+assert window._plan_progress.get_parent().has_css_class('plan-footer-summary')
+assert window._plan_fold.get_label() is None
+assert window._plan_progress_bar.get_parent().has_css_class('plan-footer')
 window._plan_add(None)
 item = window._plan_items[0]
 window._plan_widgets[item['id']][1].set_text('Test checkbox item')
@@ -74,12 +92,13 @@ assert window._compact_window is not None
 assert window._compact_window._shape == 'ball'
 assert not window.get_visible()
 window._restore_from_compact()
-assert window._compact_window is None
+assert wait_for(lambda: window._compact_window is None)
 assert window.get_visible()
 settings.set_string('compact-shape', 'pill')
 window._collapse_to_compact()
 assert window._compact_window._shape == 'pill'
 window._restore_from_compact()
+assert wait_for(lambda: window._compact_window is None)
 assert window.get_visible()
 
 legacy = app.store.create_note(title='Old note', kind='note')
@@ -89,6 +108,7 @@ note_window._save_note()
 note_window._collapse_to_compact()
 assert note_window._compact_window is not None
 note_window._restore_from_compact()
+assert wait_for(lambda: note_window._compact_window is None)
 
 # Global typography changes should affect already-open editor windows.
 settings = app._get_settings()
