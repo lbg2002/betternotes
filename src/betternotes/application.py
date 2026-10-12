@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import os
+from datetime import date
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -11,6 +12,7 @@ from betternotes.constants import APP_ID
 from betternotes.i18n import _
 from betternotes.note_store import NoteStore
 from betternotes.main_window import MainWindow
+from betternotes.plan import new_item, serialize_items
 
 
 class BetterNotesApp(Adw.Application):
@@ -23,7 +25,7 @@ class BetterNotesApp(Adw.Application):
         'note-deleted': (GObject.SignalFlags.RUN_LAST, None, (str,)),
     }
 
-    def __init__(self, version='0.2.0', **kwargs):
+    def __init__(self, version='0.3.0', **kwargs):
         super().__init__(
             application_id=APP_ID,
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
@@ -32,6 +34,7 @@ class BetterNotesApp(Adw.Application):
         self.version = version
         self.store = None
         self._note_windows = {}
+        self._reminded_this_session = set()
 
     def do_startup(self):
         Adw.Application.do_startup(self)
@@ -39,6 +42,9 @@ class BetterNotesApp(Adw.Application):
         self._load_css()
         self._setup_actions()
         self._setup_shortcuts()
+        # Lightweight reminder checks only while the application is running.
+        GLib.timeout_add_seconds(10, self._check_due_tasks, False)
+        GLib.timeout_add_seconds(900, self._check_due_tasks, True)
 
     def _load_css(self):
         css_provider = Gtk.CssProvider()
@@ -81,6 +87,11 @@ class BetterNotesApp(Adw.Application):
         actions = [
             ('new-note', self._on_new_note, None),
             ('new-plan', self._on_new_plan, None),
+            ('new-plan-daily', self._on_new_plan_daily, None),
+            ('new-plan-weekly', self._on_new_plan_weekly, None),
+            ('new-plan-study', self._on_new_plan_study, None),
+            ('export-backup', self._on_export_backup, None),
+            ('import-backup', self._on_import_backup, None),
             ('about', self._on_about, None),
             ('quit', self._on_quit, None),
             ('preferences', self._on_preferences, None),
@@ -143,7 +154,16 @@ class BetterNotesApp(Adw.Application):
     def _on_new_plan(self, action, param):
         self._create_note('plan')
 
-    def _create_note(self, kind):
+    def _on_new_plan_daily(self, action, param):
+        self._create_note('plan', 'daily')
+
+    def _on_new_plan_weekly(self, action, param):
+        self._create_note('plan', 'weekly')
+
+    def _on_new_plan_study(self, action, param):
+        self._create_note('plan', 'study')
+
+    def _create_note(self, kind, template=None):
         from betternotes.colors import DEFAULT_COLOR
 
         color = DEFAULT_COLOR
@@ -151,10 +171,98 @@ class BetterNotesApp(Adw.Application):
         if settings:
             color = settings.get_string('default-color') or DEFAULT_COLOR
 
-        note = self.store.create_note(title='', content='', color=color,
+        templates = {
+            'daily': (_('Daily plan'), [_('Most important task'), _('Focus work'), _('Daily review')]),
+            'weekly': (_('Weekly plan'), [_('Monday goals'), _('Midweek review'), _('Weekly summary')]),
+            'study': (_('Study plan'), [_('Read material'), _('Practice'), _('Review notes')]),
+        }
+        title, items = templates.get(template, ('', []))
+        content = serialize_items([new_item(text) for text in items]) if template else ''
+        note = self.store.create_note(title=title, content=content, color=color,
                                       kind=kind)
         self.emit('note-created', note.id)
         self.open_note(note.id)
+
+    def _on_export_backup(self, action, param):
+        import json
+        from betternotes.backup import make_archive
+        dialog = Gtk.FileDialog(title=_('Export backup'), initial_name='pinplan-backup.json')
+        dialog.save(self.get_active_window(), None, self._backup_save_done)
+
+    def _backup_save_done(self, dialog, result):
+        import json
+        from betternotes.backup import make_archive
+        try:
+            chosen = dialog.save_finish(result)
+            if not chosen or not chosen.get_path():
+                return
+            for win in list(self._note_windows.values()):
+                if hasattr(win, '_auto_save'):
+                    win._auto_save.save_now()
+            archive = make_archive(self.store)
+            with open(chosen.get_path(), 'w', encoding='utf-8') as file:
+                json.dump(archive, file, ensure_ascii=False, indent=2)
+            self._backup_notice(_('Backup exported'))
+        except GLib.Error:
+            return  # User cancelled the file dialog.
+        except (OSError, ValueError) as exc:
+            self._backup_notice(_('Backup failed: ') + str(exc))
+
+    def _on_import_backup(self, action, param):
+        dialog = Gtk.FileDialog(title=_('Import backup'))
+        dialog.open(self.get_active_window(), None, self._backup_open_done)
+
+    def _backup_open_done(self, dialog, result):
+        import json
+        from betternotes.backup import restore_archive
+        try:
+            chosen = dialog.open_finish(result)
+            if not chosen or not chosen.get_path():
+                return
+            # Flush in-flight edits before restoring additional records.
+            for win in list(self._note_windows.values()):
+                if hasattr(win, '_auto_save'):
+                    win._auto_save.save_now()
+            if os.path.getsize(chosen.get_path()) > 20 * 1024 * 1024:
+                raise ValueError(_('Backup file is too large'))
+            with open(chosen.get_path(), encoding='utf-8') as file:
+                archive = json.load(file)
+            restored = restore_archive(self.store, archive)
+            self.emit('note-created', '')
+            self._backup_notice(_('Imported {count} notes').format(count=restored))
+        except GLib.Error:
+            return
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            self._backup_notice(_('Import failed: ') + str(exc))
+
+    def _backup_notice(self, message):
+        win = next((win for win in self.get_windows() if isinstance(win, MainWindow)), None)
+        if win:
+            win._show_toast(message)
+
+    def _check_due_tasks(self, repeat=True):
+        from betternotes.plan import parse_items
+        today = date.today().isoformat()
+        if not self.store:
+            return GLib.SOURCE_REMOVE
+        for note in self.store.get_all_notes():
+            if note.kind != 'plan':
+                continue
+            for item in parse_items(note.content):
+                due = item.get('due', '')
+                if item['done'] or not due or due > today:
+                    continue
+                key = (note.id, item['id'], due)
+                if key in self._reminded_this_session:
+                    continue
+                self._reminded_this_session.add(key)
+                notification = Gio.Notification.new(_('Plan due'))
+                notification.set_body(
+                    (note.title or _('Untitled Note')) + ' · ' + item['text']
+                )
+                self.send_notification('pinplan-' + note.id + '-' + item['id'],
+                                       notification)
+        return GLib.SOURCE_CONTINUE if repeat else GLib.SOURCE_REMOVE
 
     def _on_about(self, action, param):
         about = Adw.AboutDialog(

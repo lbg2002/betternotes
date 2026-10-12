@@ -24,6 +24,7 @@ betternotes_sources = files(
   'betternotes/preferences.py',
   'betternotes/i18n.py',
   'betternotes/plan.py',
+  'betternotes/backup.py',
 )
 
 install_data(

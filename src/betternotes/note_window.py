@@ -214,31 +214,70 @@ xlib.XCloseDisplay(dpy)
 
         self.set_content(main_box)
 
+
     def _build_plan_ui(self, parent):
         self._plan_items = []
         self._plan_widgets = {}
-        self._plan_progress = Gtk.Label(xalign=0)
-        self._plan_progress.add_css_class('plan-progress')
-        parent.append(self._plan_progress)
 
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        header.add_css_class('plan-heading')
+        self._plan_progress = Gtk.Label(xalign=0, hexpand=True)
+        header.append(self._plan_progress)
+
+        self._plan_fold = Gtk.ToggleButton(label=_('Hide completed'))
+        self._plan_fold.add_css_class('flat')
+        self._plan_fold.add_css_class('plan-fold')
+        settings = self._app._get_settings()
+        self._plan_fold.set_active(
+            settings.get_boolean('hide-completed') if settings else False
+        )
+        self._plan_fold.connect('toggled', self._plan_fold_toggled)
+        header.append(self._plan_fold)
+        parent.append(header)
+
+        # One scrollable surface; a small plus floats in the bottom corner.
         scroll = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
         self._plan_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         self._plan_box.add_css_class('plan-items')
+        self._plan_box.set_vexpand(True)
+        blank_click = Gtk.GestureClick()
+        blank_click.connect('released', self._plan_blank_clicked)
+        self._plan_box.add_controller(blank_click)
         scroll.set_child(self._plan_box)
-        parent.append(scroll)
 
-        add_btn = Gtk.Button(label=_('Add task'))
+        overlay = Gtk.Overlay()
+        overlay.set_child(scroll)
+        add_btn = Gtk.Button(icon_name='list-add-symbolic')
+        add_btn.add_css_class('circular')
         add_btn.add_css_class('suggested-action')
-        add_btn.add_css_class('plan-add')
+        add_btn.add_css_class('plan-add-fab')
+        add_btn.set_tooltip_text(_('Add task'))
+        add_btn.set_halign(Gtk.Align.END)
+        add_btn.set_valign(Gtk.Align.END)
+        add_btn.set_margin_end(14)
+        add_btn.set_margin_bottom(14)
         add_btn.connect('clicked', self._plan_add)
-        parent.append(add_btn)
+        overlay.add_overlay(add_btn)
+        parent.append(overlay)
+
+    def _plan_blank_clicked(self, gesture, count, x, y):
+        # Only a click on the empty surface commits editing; clicking text
+        # itself should begin (not immediately finish) inline editing.
+        picked = self._plan_box.pick(x, y, Gtk.PickFlags.DEFAULT)
+        if picked is self._plan_box or picked is None:
+            for uid, widgets in list(self._plan_widgets.items()):
+                if widgets[1].get_visible():
+                    self._plan_finish_edit(None, uid)
 
     def _plan_find(self, uid):
         return next((item for item in self._plan_items if item['id'] == uid), None)
 
     def _plan_markup(self, item):
         escaped = GLib.markup_escape_text(item['text'] or _('New task'))
-        return '<s>' + escaped + '</s>' if item['done'] else escaped
+        text = '<s>' + escaped + '</s>' if item['done'] else escaped
+        if item.get('due'):
+            text += '\\n<small>📅 ' + GLib.markup_escape_text(item['due']) + '</small>'
+        return text
 
     def _plan_progress_update(self):
         done = sum(bool(item['done']) for item in self._plan_items)
@@ -246,6 +285,13 @@ xlib.XCloseDisplay(dpy)
         self._plan_progress.set_label(
             _('Completed {done}/{total}').format(done=done, total=total)
         )
+        self._plan_fold.set_sensitive(done > 0)
+
+    def _plan_fold_toggled(self, toggle):
+        settings = self._app._get_settings()
+        if settings:
+            settings.set_boolean('hide-completed', toggle.get_active())
+        self._plan_refresh()
 
     def _plan_refresh(self):
         child = self._plan_box.get_first_child()
@@ -254,11 +300,16 @@ xlib.XCloseDisplay(dpy)
             self._plan_box.remove(child)
             child = nxt
         self._plan_widgets = {}
+        collapsed = self._plan_fold.get_active()
 
-        for pos, item in enumerate(self._plan_items):
+        for item in self._plan_items:
+            if collapsed and item['done']:
+                continue
             uid = item['id']
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
             row.add_css_class('plan-item')
+            if item['done']:
+                row.add_css_class('plan-item-done')
 
             check = Gtk.CheckButton()
             check.set_active(item['done'])
@@ -269,49 +320,111 @@ xlib.XCloseDisplay(dpy)
             label = Gtk.Label(xalign=0, hexpand=True, wrap=True)
             label.set_markup(self._plan_markup(item))
             label.add_css_class('plan-label')
-            row.append(label)
+
+            # Clicking text edits; dragging the same text moves the entire row.
+            text_btn = Gtk.Button()
+            text_btn.set_child(label)
+            text_btn.set_hexpand(True)
+            text_btn.add_css_class('flat')
+            text_btn.add_css_class('plan-text-button')
+            text_btn.set_tooltip_text(_('Click to edit · drag to reorder'))
+            text_btn.connect('clicked', self._plan_start_edit, uid)
+            drag = Gtk.DragSource()
+            drag.set_actions(Gdk.DragAction.MOVE)
+            drag.connect('prepare', self._plan_drag_prepare, uid)
+            text_btn.add_controller(drag)
+            drop = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
+            drop.connect('drop', self._plan_drop, uid)
+            text_btn.add_controller(drop)
+            context = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
+            context.connect('pressed', self._plan_open_date_menu, uid, text_btn)
+            text_btn.add_controller(context)
+            row.append(text_btn)
 
             entry = Gtk.Entry(text=item['text'], hexpand=True)
             entry.set_placeholder_text(_('New task'))
             entry.set_visible(False)
             entry.connect('changed', self._plan_text_changed, uid, label)
             entry.connect('activate', self._plan_finish_edit, uid)
+            focus = Gtk.EventControllerFocus()
+            focus.connect('leave', lambda controller, key=uid: self._plan_finish_edit(None, key))
+            entry.add_controller(focus)
             row.append(entry)
             self._plan_widgets[uid] = (label, entry)
 
-            edit = Gtk.Button(icon_name='document-edit-symbolic')
-            edit.set_tooltip_text(_('Edit task'))
-            edit.connect('clicked', self._plan_start_edit, uid)
-            row.append(edit)
-
-            up = Gtk.Button(icon_name='go-up-symbolic')
-            up.set_tooltip_text(_('Move up'))
-            up.set_sensitive(pos > 0)
-            up.connect('clicked', self._plan_move, uid, -1)
-            row.append(up)
-
-            down = Gtk.Button(icon_name='go-down-symbolic')
-            down.set_tooltip_text(_('Move down'))
-            down.set_sensitive(pos + 1 < len(self._plan_items))
-            down.connect('clicked', self._plan_move, uid, 1)
-            row.append(down)
-
-            delete = Gtk.Button(icon_name='edit-delete-symbolic')
+            delete = Gtk.Button(icon_name='user-trash-symbolic')
+            delete.add_css_class('flat')
+            delete.add_css_class('plan-delete')
             delete.set_tooltip_text(_('Delete task'))
             delete.connect('clicked', self._plan_delete, uid)
             row.append(delete)
             self._plan_box.append(row)
         self._plan_progress_update()
 
+    def _plan_drag_prepare(self, source, x, y, uid):
+        return Gdk.ContentProvider.new_for_value(uid)
+
+    def _plan_drop(self, target, dragged_uid, x, y, dest_uid):
+        if not isinstance(dragged_uid, str):
+            return False
+        positions = {item['id']: i for i, item in enumerate(self._plan_items)}
+        if dragged_uid not in positions or dest_uid not in positions:
+            return False
+        old, new = positions[dragged_uid], positions[dest_uid]
+        if old == new:
+            return True
+        item = self._plan_items.pop(old)
+        self._plan_items.insert(new, item)
+        self._plan_refresh()
+        self._on_content_changed()
+        return True
+
+    def _plan_open_date_menu(self, gesture, count, x, y, uid, button):
+        item = self._plan_find(uid)
+        if item is None:
+            return
+        popover = Gtk.Popover()
+        popover.set_parent(button)
+        layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        layout.set_margin_top(8)
+        layout.set_margin_bottom(8)
+        layout.set_margin_start(8)
+        layout.set_margin_end(8)
+        label = Gtk.Label(label=_('Choose due date'))
+        layout.append(label)
+        calendar = Gtk.Calendar()
+        layout.append(calendar)
+        calendar.connect('day-selected', self._plan_date_chosen, uid, popover)
+        clear = Gtk.Button(label=_('Clear due date'))
+        clear.connect('clicked', self._plan_clear_date, uid, popover)
+        layout.append(clear)
+        popover.set_child(layout)
+        popover.connect('closed', lambda obj: obj.unparent())
+        popover.popup()
+
+    def _plan_date_chosen(self, calendar, uid, popover):
+        item = self._plan_find(uid)
+        if item is not None:
+            item['due'] = calendar.get_date().format('%Y-%m-%d')
+            popover.popdown()
+            GLib.idle_add(self._plan_refresh)
+            self._on_content_changed()
+
+    def _plan_clear_date(self, button, uid, popover):
+        item = self._plan_find(uid)
+        if item is not None:
+            item['due'] = ''
+            popover.popdown()
+            GLib.idle_add(self._plan_refresh)
+            self._on_content_changed()
+
     def _plan_toggle(self, check, uid):
         item = self._plan_find(uid)
         if item is None:
             return
         item['done'] = check.get_active()
-        widgets = self._plan_widgets.get(uid)
-        if widgets:
-            widgets[0].set_markup(self._plan_markup(item))
-        self._plan_progress_update()
+        # Update background, strikethrough and fold visibility atomically.
+        self._plan_refresh()
         self._on_content_changed()
 
     def _plan_text_changed(self, entry, uid, label):
@@ -325,39 +438,41 @@ xlib.XCloseDisplay(dpy)
         widgets = self._plan_widgets.get(uid)
         if widgets:
             label, entry = widgets
-            label.set_visible(False)
+            label.get_parent().set_visible(False)
             entry.set_visible(True)
             entry.grab_focus()
-            entry.select_region(0, -1)
+            entry.select_region(-1, -1)
 
     def _plan_finish_edit(self, entry, uid):
         widgets = self._plan_widgets.get(uid)
-        if widgets:
-            label, field = widgets
-            field.set_visible(False)
-            label.set_visible(True)
+        if not widgets:
+            return
+        label, field = widgets
+        if not field.get_visible():
+            return
+        item = self._plan_find(uid)
+        # Empty draft rows disappear on Enter or clicking elsewhere.
+        if item is not None and not item['text'].strip():
+            self._plan_items = [i for i in self._plan_items if i['id'] != uid]
+            self._plan_refresh()
+            self._on_content_changed()
+            return
+        field.set_visible(False)
+        label.get_parent().set_visible(True)
+        self._on_content_changed()
 
     def _plan_add(self, button):
+        # Do not strand the previous editor when adding a second task.
+        for uid, (label, entry) in list(self._plan_widgets.items()):
+            if entry.get_visible():
+                self._plan_finish_edit(None, uid)
         item = new_item()
         self._plan_items.append(item)
         self._plan_refresh()
-        self._on_content_changed()
         self._plan_start_edit(None, item['id'])
 
     def _plan_delete(self, button, uid):
         self._plan_items = [item for item in self._plan_items if item['id'] != uid]
-        self._plan_refresh()
-        self._on_content_changed()
-
-    def _plan_move(self, button, uid, direction):
-        index = next((i for i, item in enumerate(self._plan_items)
-                      if item['id'] == uid), -1)
-        target = index + direction
-        if index < 0 or not (0 <= target < len(self._plan_items)):
-            return
-        self._plan_items[index], self._plan_items[target] = (
-            self._plan_items[target], self._plan_items[index]
-        )
         self._plan_refresh()
         self._on_content_changed()
 

@@ -57,6 +57,8 @@ class MainWindow(Adw.ApplicationWindow):
         menu.append(_('New note'), 'app.new-note')
         menu.append(_('New plan'), 'app.new-plan')
         menu.append(_('Keyboard Shortcuts'), 'app.shortcuts')
+        menu.append(_('Export backup'), 'app.export-backup')
+        menu.append(_('Import backup'), 'app.import-backup')
         menu.append(_('Preferences'), 'app.preferences')
         menu.append(_('About BetterNotes'), 'app.about')
 
@@ -214,6 +216,11 @@ class MainWindow(Adw.ApplicationWindow):
         new_menu = Gio.Menu()
         new_menu.append(_('New note'), 'app.new-note')
         new_menu.append(_('New plan'), 'app.new-plan')
+        templates = Gio.Menu()
+        templates.append(_('Daily plan'), 'app.new-plan-daily')
+        templates.append(_('Weekly plan'), 'app.new-plan-weekly')
+        templates.append(_('Study plan'), 'app.new-plan-study')
+        new_menu.append_submenu(_('Templates'), templates)
         fab = Gtk.MenuButton(
             icon_name='list-add-symbolic',
             tooltip_text=_('Create note or plan'),

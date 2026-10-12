@@ -1,11 +1,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """JSON checklist persistence. No new runtime dependencies or database table."""
 import json
+from datetime import date
 from uuid import uuid4
 
 
-def new_item(text='', done=False):
-    return {'id': str(uuid4()), 'text': text, 'done': bool(done)}
+def new_item(text='', done=False, due=''):
+    return {'id': str(uuid4()), 'text': text, 'done': bool(done), 'due': due}
+
+
+def valid_due(value):
+    if not isinstance(value, str) or not value:
+        return ''
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError:
+        return ''
 
 
 def parse_items(content):
@@ -30,6 +40,7 @@ def parse_items(content):
             'id': item_id,
             'text': str(raw.get('text', '')),
             'done': bool(raw.get('done', False)),
+            'due': valid_due(raw.get('due', '')),
         })
     return result
 
