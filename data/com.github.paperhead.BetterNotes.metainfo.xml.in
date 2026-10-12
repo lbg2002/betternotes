@@ -48,6 +48,9 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.4.2" date="2026-10-12">
+      <description><p>Compact plan footer, icon-only fold, multi-monitor restore near dragged handle and first official PinPlan Debian package.</p></description>
+    </release>
     <release version="0.4.1" date="2026-10-12">
       <description><p>Collapse notes into draggable floating circles or rounded rectangles; checklist progress, Enter-to-continue and undo deleted tasks.</p></description>
     </release>
