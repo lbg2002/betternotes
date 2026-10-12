@@ -31,5 +31,9 @@
       <default>false</default>
       <summary>Display formatting toolbar in note windows</summary>
     </key>
+    <key name="hide-completed" type="b">
+      <default>false</default>
+      <summary>Collapse checked off tasks in checklist notes</summary>
+    </key>
   </schema>
 </schemalist>
