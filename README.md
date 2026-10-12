@@ -141,7 +141,9 @@ PinPlan Notes is a small, local-first sticky notes and checklist application for
 - **Checklists:** click text to edit, drag it to reorder, mark completed tasks with strikethrough and muted background, hide completed tasks, delete entries and save automatically. Right-click for optional due dates.
 - **Desktop:** individual always-on-top windows through the original XWayland/X11 implementation.
 - **Localization:** Simplified Chinese, English, or system language.
-- **Templates & backups:** daily/weekly/study presets, local JSON export and additive import.\n- **Reminders:** notifications for due/overdue tasks while the app is running (no resident daemon).\n- **Privacy:** SQLite local storage, no account or network requirement.
+- **Templates & backups:** daily/weekly/study presets, local JSON export and additive import.
+- **Reminders:** notifications for due/overdue tasks while the app is running (no resident daemon).
+- **Privacy:** SQLite local storage, no account or network requirement.
 
 Download the Debian package from [Releases](https://github.com/lbg2002/betternotes/releases) and install with `sudo apt install ./betternotes-lite_*.deb`. Use **+** to choose a sticky note or a checklist. Existing Snap installs may have separate storage; back up your notes before migrating.
 
