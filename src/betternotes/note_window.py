@@ -404,7 +404,14 @@ xlib.XCloseDisplay(dpy)
         self._plan_fold.set_active(
             settings.get_boolean('hide-completed') if settings else False
         )
-        self._plan_fold.set_tooltip_text(_('Hide completed') if not self._plan_fold.get_active() else _('Show completed'))
+        self._plan_fold.set_icon_name(
+            'view-reveal-symbolic' if self._plan_fold.get_active()
+            else 'view-conceal-symbolic'
+        )
+        self._plan_fold.set_tooltip_text(
+            _('Show completed') if self._plan_fold.get_active()
+            else _('Hide completed')
+        )
         self._plan_fold.connect('toggled', self._plan_fold_toggled)
         footer_summary.append(self._plan_fold)
 
