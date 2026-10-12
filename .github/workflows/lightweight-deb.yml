@@ -17,7 +17,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 python3-gi libgtk-4-dev libadwaita-1-dev meson ninja-build gettext libglib2.0-dev-bin gir1.2-gtk-4.0 gir1.2-adw-1 dpkg-dev
+          sudo apt-get install -y python3 python3-gi libgtk-4-dev libadwaita-1-dev meson ninja-build gettext libglib2.0-dev-bin gir1.2-gtk-4.0 gir1.2-adw-1 dpkg-dev desktop-file-utils
       - name: Validate Python and schema
         run: |
           python3 -m compileall -q src/betternotes
