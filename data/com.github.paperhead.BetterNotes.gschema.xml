@@ -35,5 +35,13 @@
       <default>false</default>
       <summary>Collapse checked off tasks in checklist notes</summary>
     </key>
+    <key name="font-family" type="s">
+      <default>''</default>
+      <summary>Note and plan font family (empty uses desktop font)</summary>
+    </key>
+    <key name="font-size" type="i">
+      <default>14</default>
+      <summary>Note and plan body font size in CSS pixels</summary>
+    </key>
   </schema>
 </schemalist>

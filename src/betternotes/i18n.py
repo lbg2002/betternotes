@@ -85,6 +85,16 @@ ZH = {
   "Read material": "阅读资料",
   "Practice": "练习",
   "Review notes": "复习笔记",
+  "Typography": "字体与字号",
+  "Font family": "字体",
+  "Choose an installed system font": "从已安装字体中选择",
+  "Font size": "字号",
+  "Pixels — affects note text and plan items": "像素（便签正文及计划条目）",
+  "Applies to notes, checklists and previews": "统一应用到便签、计划与预览",
+  "System font and default size": "系统默认字体和字号",
+  "Restore default typography": "恢复默认字体样式",
+  "Reset typography": "恢复默认",
+  "Font preview: 论文计划 ABC 123": "预览：论文计划 ABC 123",
   "Formatting": "文本格式"
 }
 

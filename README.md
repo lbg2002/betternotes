@@ -4,7 +4,9 @@
 
 **把想法贴在桌面，把计划逐项完成。**
 
-**v0.3 更新：极简计划窗口、拖拽排序、完成项折叠、到期提醒、模板及一键数据备份。**
+**v0.4 更新：在主界面「首选项 → 字体与字号」中选择电脑已安装的字体、调整 10–32 px 字号，普通便签、计划清单及预览会实时同步，支持恢复系统默认。**
+
+v0.3 的极简计划、拖拽排序、完成项折叠、模板、到期提醒和备份功能全部保留。
 
 *A lightweight pinned notes & checklist app for Linux.*
 
@@ -30,6 +32,7 @@
 | 桌面独立窗口、置顶 | ✅ | ✅ |
 | 8 种颜色及深色主题 | ✅ | ✅ |
 | 自定义标题和标签 | ✅ | ✅ |
+| 全局字体、字号实时调整 | ✅ | ✅ |
 | 搜索、回收站、自动保存 | ✅ | ✅ |
 | 加粗 / 斜体 / 下划线 / 删除线 / 列表 | ✅ | — |
 | 格式工具栏默认隐藏、按需展开 | ✅ | — |
@@ -97,7 +100,9 @@ sudo apt install ./betternotes-lite_*.deb
 
 如需设定截止日期，**右键点击计划项文字**打开日历。日期到期或逾期时，仅在软件运行期间发送桌面通知。
 
-在首选项中可以选择语言，以及默认是否显示格式工具栏；切换语言后重新启动程序生效。
+在主界面右上角菜单打开 **首选项 → 字体与字号**，可选择电脑中已安装的字体，使用字号调节器设置 **10–32 px**，预览区会实时更新，已打开的便签和计划也同步生效。点击「恢复默认」可以重新使用系统字体与默认大小。**不修改现有便签的保存格式或内容。**
+
+首选项还可选择界面语言、是否显示格式工具栏。切换语言后需重新启动程序。
 
 ## 旧版数据与安全升级
 
@@ -140,7 +145,7 @@ PinPlan Notes is a small, local-first sticky notes and checklist application for
 - **Sticky notes:** rich text, optional compact toolbar, colors, tags, full-text search, trash and automatic saving.
 - **Checklists:** click text to edit, drag it to reorder, mark completed tasks with strikethrough and muted background, hide completed tasks, delete entries and save automatically. Right-click for optional due dates.
 - **Desktop:** individual always-on-top windows through the original XWayland/X11 implementation.
-- **Localization:** Simplified Chinese, English, or system language.
+- **Typography:** live font-family and font-size (10–32px) preferences for notes, checklists and previews, with system-default reset.\n- **Localization:** Simplified Chinese, English, or system language.
 - **Templates & backups:** daily/weekly/study presets, local JSON export and additive import.
 - **Reminders:** notifications for due/overdue tasks while the app is running (no resident daemon).
 - **Privacy:** SQLite local storage, no account or network requirement.
