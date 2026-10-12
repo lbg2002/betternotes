@@ -1,7 +1,7 @@
-name: Lightweight DEB CI
+name: PinPlan lightweight DEB CI
 on:
   push:
-    branches: [main, feature/zh-cn-compact-lightweight]
+    branches: [main, feature/zh-cn-compact-lightweight, feature/pinplan-checklists]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -22,6 +22,7 @@ jobs:
         run: |
           python3 -m compileall -q src/betternotes
           glib-compile-schemas --strict --dry-run data/
+          PYTHONPATH=src /usr/bin/python3 -m unittest discover -s tests -v
       - name: Install into package root
         run: |
           meson setup build --prefix=/usr
@@ -32,12 +33,12 @@ jobs:
           mkdir -p pkg/DEBIAN
           cat > pkg/DEBIAN/control <<'CONTROL'
           Package: betternotes-lite
-          Version: 0.1.2+cn1
+          Version: 0.2.0+cn2
           Architecture: all
           Maintainer: Community Fork <noreply@github.com>
           Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-gdkpixbuf-2.0
           Conflicts: betternotes
-          Description: Lightweight Chinese-enabled desktop sticky notes
+          Description: PinPlan lightweight bilingual sticky notes and checklists
            GTK4 and Libadwaita sticky notes using distribution shared libraries.
           CONTROL
           # Do not ship redundant Python bytecode, caches or dev artefacts.
@@ -51,17 +52,17 @@ jobs:
           name: betternotes-lite-deb
           path: '*.deb'
       - name: Publish experimental prerelease after successful branch build
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/zh-cn-compact-lightweight') || (github.event_name == 'pull_request' && github.head_ref == 'feature/zh-cn-compact-lightweight')
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/pinplan-checklists') || (github.event_name == 'pull_request' && github.head_ref == 'feature/pinplan-checklists')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.2-cn1-pre
+          tag_name: v0.2.0-cn2-pre
           target_commitish: ${{ github.event.pull_request.head.sha || github.sha }}
-          name: BetterNotes CN Lite 0.1.2-cn1 (experimental)
+          name: PinPlan Notes 0.2.0-cn2 (experimental)
           prerelease: true
           draft: false
           files: '*.deb'
           body: |
-            Experimental Chinese UI and compact notes build. CI compilation and
+            Experimental pinned checklists, localized notes and lightweight build. CI compilation and
             packaging passed; GNOME 50 / Ubuntu 26.04 graphical testing has not
             yet been completed. Backup Snap data before trying this package.
       - name: Create GitHub release on tagged builds
