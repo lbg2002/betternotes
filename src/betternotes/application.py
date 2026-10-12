@@ -26,7 +26,7 @@ class BetterNotesApp(Adw.Application):
         'note-deleted': (GObject.SignalFlags.RUN_LAST, None, (str,)),
     }
 
-    def __init__(self, version='0.4.2', **kwargs):
+    def __init__(self, version='0.4.3', **kwargs):
         super().__init__(
             application_id=APP_ID,
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
@@ -202,7 +202,9 @@ class BetterNotesApp(Adw.Application):
             'weekly': (_('Weekly plan'), [_('Monday goals'), _('Midweek review'), _('Weekly summary')]),
             'study': (_('Study plan'), [_('Read material'), _('Practice'), _('Review notes')]),
         }
-        title, items = templates.get(template, ('', []))
+        title, items = templates.get(
+            template, (_('New plan') if kind == 'plan' else '', [])
+        )
         content = serialize_items([new_item(text) for text in items]) if template else ''
         note = self.store.create_note(title=title, content=content, color=color,
                                       kind=kind)
