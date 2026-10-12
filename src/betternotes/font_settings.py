@@ -31,10 +31,13 @@ def make_font_css(family='', size=14):
     declaration = f'font-family: "{family}";' if family else ''
     return (
         ".note-text-view, .plan-label, .plan-item entry, "
-        ".note-card-preview, .plan-font-preview {"
+        ".note-card-title, .plan-font-preview {"
         f"{declaration} font-size: {size}px; "
         "}"
-        ".note-title-entry, .note-card-title {"
+        ".note-card-preview {"
+        f"{declaration} font-size: {max(10, round(size * 0.86))}px; "
+        "}"
+        ".note-title-entry {"
         f"{declaration} font-size: {round(size * 1.29)}px; "
         "}"
         ".plan-progress {"
