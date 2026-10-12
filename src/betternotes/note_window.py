@@ -18,6 +18,7 @@ from betternotes.rich_text_serializer import (
 )
 from betternotes.rich_text_toolbar import RichTextToolbar
 from betternotes.plan import new_item, parse_items, serialize_items
+from betternotes.x11_position import restore_position, get_window_geometry, move_window
 
 
 
@@ -107,6 +108,7 @@ class NoteWindow(Adw.Window):
         self._updating_toolbar = False
         self._compact_window = None
         self._compact_closing = False
+        self._restoring_compact = False
 
         self.set_default_size(440 if note.kind == 'plan' else 400, 500)
         self.set_title(note.title or _('Untitled Note'))
@@ -218,6 +220,12 @@ xlib.XCloseDisplay(dpy)
             self._auto_save.save_now()
         settings = self._app._get_settings()
         shape = settings.get_string('compact-shape') if settings else 'ball'
+        self._restoring_compact = False
+        # Capture the user-resized size while the editor is still visible.
+        self._expanded_size = (
+            self.get_width() if self.get_width() >= 200 else (440 if self._note.kind == 'plan' else 400),
+            self.get_height() if self.get_height() >= 200 else 500,
+        )
         compact = CompactNoteWindow(self, shape)
         self._compact_window = compact
         compact.connect('map', self._on_compact_mapped)
@@ -237,13 +245,46 @@ xlib.XCloseDisplay(dpy)
 
     def _restore_from_compact(self):
         compact = self._compact_window
-        if compact is None:
+        if compact is None or self._restoring_compact:
             return
+        self._restoring_compact = True
+        # The compact handle must stay mapped until its live X11 position is
+        # read and the original editor has a fresh mapped XID.
+        self.present()
+        GLib.timeout_add(120, self._finish_restore_near_handle, compact, 0)
+
+    def _finish_restore_near_handle(self, compact, attempt):
+        if self._compact_window is not compact:
+            return GLib.SOURCE_REMOVE
+        surface = self.get_surface()
+        handle_surface = compact.get_surface()
+        handle = get_window_geometry(handle_surface) if handle_surface else None
+        if (surface is None or handle is None) and attempt < 8:
+            GLib.timeout_add(100, self._finish_restore_near_handle, compact, attempt + 1)
+            return GLib.SOURCE_REMOVE
+
+        if surface is not None and handle is not None:
+            display = self.get_display()
+            monitors = []
+            if display is not None:
+                model = display.get_monitors()
+                for i in range(model.get_n_items()):
+                    geo = model.get_item(i).get_geometry()
+                    monitors.append((geo.x, geo.y, geo.width, geo.height))
+            size = self._expanded_size or (440, 500)
+            x, y = restore_position(handle, size, monitors)
+            move_window(surface, x, y)
+
+        # Native Wayland does not support programmatic toplevel positioning.
+        # In that case safely restore without losing the note window.
         self._compact_window = None
         self._compact_closing = True
-        compact.close()
-        self._compact_closing = False
-        self.present()
+        try:
+            compact.close()
+        finally:
+            self._compact_closing = False
+            self._restoring_compact = False
+        return GLib.SOURCE_REMOVE
 
     def _build_ui(self):
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -343,10 +384,10 @@ xlib.XCloseDisplay(dpy)
         self._plan_widgets = {}
         self._plan_undo_stack = []
 
-        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        header.add_css_class('plan-heading')
+        footer_summary = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        footer_summary.add_css_class('plan-footer-summary')
         self._plan_progress = Gtk.Label(xalign=0, hexpand=True)
-        header.append(self._plan_progress)
+        footer_summary.append(self._plan_progress)
 
         self._plan_undo_button = Gtk.Button(icon_name='edit-undo-symbolic')
         self._plan_undo_button.add_css_class('flat')
@@ -354,21 +395,18 @@ xlib.XCloseDisplay(dpy)
         self._plan_undo_button.set_tooltip_text(_('Undo deleted task'))
         self._plan_undo_button.set_visible(False)
         self._plan_undo_button.connect('clicked', self._plan_undo)
-        header.append(self._plan_undo_button)
+        footer_summary.append(self._plan_undo_button)
 
-        self._plan_fold = Gtk.ToggleButton(label=_('Hide completed'))
+        self._plan_fold = Gtk.ToggleButton(icon_name='view-conceal-symbolic')
         self._plan_fold.add_css_class('flat')
         self._plan_fold.add_css_class('plan-fold')
         settings = self._app._get_settings()
         self._plan_fold.set_active(
             settings.get_boolean('hide-completed') if settings else False
         )
+        self._plan_fold.set_tooltip_text(_('Hide completed') if not self._plan_fold.get_active() else _('Show completed'))
         self._plan_fold.connect('toggled', self._plan_fold_toggled)
-        header.append(self._plan_fold)
-        parent.append(header)
-        self._plan_progress_bar = Gtk.ProgressBar()
-        self._plan_progress_bar.add_css_class('plan-completion-progress')
-        parent.append(self._plan_progress_bar)
+        footer_summary.append(self._plan_fold)
 
         # One scrollable surface; a small plus floats in the bottom corner.
         scroll = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
@@ -394,6 +432,16 @@ xlib.XCloseDisplay(dpy)
         add_btn.connect('clicked', self._plan_add)
         overlay.add_overlay(add_btn)
         parent.append(overlay)
+
+        # Keep title immediately followed by checklist items. Progress,
+        # collapse-completed and undo controls live at the bottom instead.
+        footer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        footer.add_css_class('plan-footer')
+        self._plan_progress_bar = Gtk.ProgressBar()
+        self._plan_progress_bar.add_css_class('plan-completion-progress')
+        footer.append(self._plan_progress_bar)
+        footer.append(footer_summary)
+        parent.append(footer)
 
     def _plan_blank_clicked(self, gesture, count, x, y):
         # Only a click on the empty surface commits editing; clicking text
@@ -424,6 +472,13 @@ xlib.XCloseDisplay(dpy)
         self._plan_progress_bar.set_fraction(done / total if total else 0)
 
     def _plan_fold_toggled(self, toggle):
+        toggle.set_icon_name(
+            'view-reveal-symbolic' if toggle.get_active()
+            else 'view-conceal-symbolic'
+        )
+        toggle.set_tooltip_text(
+            _('Show completed') if toggle.get_active() else _('Hide completed')
+        )
         settings = self._app._get_settings()
         if settings:
             settings.set_boolean('hide-completed', toggle.get_active())
