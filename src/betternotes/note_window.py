@@ -18,7 +18,7 @@ from betternotes.rich_text_serializer import (
 )
 from betternotes.rich_text_toolbar import RichTextToolbar
 from betternotes.plan import new_item, parse_items, serialize_items
-from betternotes.x11_position import restore_position, get_window_geometry, move_window, move_window_direct
+from betternotes.x11_position import restore_position, compact_position, get_window_geometry, move_window, move_window_direct
 
 
 
@@ -213,37 +213,93 @@ xlib.XCloseDisplay(dpy)
         )
         return GLib.SOURCE_REMOVE
 
+
+    def _note_monitors(self):
+        display = self.get_display()
+        monitors = []
+        if display is not None:
+            model = display.get_monitors()
+            for i in range(model.get_n_items()):
+                rect = model.get_item(i).get_geometry()
+                monitors.append((rect.x, rect.y, rect.width, rect.height))
+        return monitors
+
+    @staticmethod
+    def _position_matches(window_geometry, target, tolerance=45):
+        return (window_geometry is not None
+                and abs(window_geometry[0] - target[0]) <= tolerance
+                and abs(window_geometry[1] - target[1]) <= tolerance)
+
     def _collapse_to_compact(self, button=None):
         if self._compact_window is not None:
-            self._compact_window.present()
             return
-        # Flush pending edits, but do not destroy the original editor.
         if hasattr(self, '_auto_save'):
             self._auto_save.save_now()
+
+        # Source geometry MUST be read while the original note is mapped.
+        # GTK's new compact toplevel is first mapped fully transparent, then
+        # moved into place; the old note remains visible until the switch.
+        original = get_window_geometry(self.get_surface())
+        if original is None:
+            # No reliable coordinates => leave the note in place.
+            return
+        self._expanded_size = (
+            original[2] if original[2] >= 200 else (440 if self._note.kind == 'plan' else 400),
+            original[3] if original[3] >= 200 else 500,
+        )
         settings = self._app._get_settings()
         shape = settings.get_string('compact-shape') if settings else 'ball'
+        small = (58, 58) if shape == 'ball' else (188, 46)
+        target = compact_position(original, small, self._note_monitors())
+        self._compact_closing = False
         self._restoring_compact = False
-        self._restore_watch_serial += 1  # Cancel pending position checks.
-        self._restore_target = None
-        # Capture the user-resized size while the editor is still visible.
-        self._expanded_size = (
-            self.get_width() if self.get_width() >= 200 else (440 if self._note.kind == 'plan' else 400),
-            self.get_height() if self.get_height() >= 200 else 500,
-        )
+        self._restore_watch_serial += 1
         compact = CompactNoteWindow(self, shape)
+        compact.set_opacity(0.0)
         self._compact_window = compact
         compact.connect('map', self._on_compact_mapped)
         compact.connect('close-request', self._on_compact_close_requested)
-        self.set_visible(False)
         compact.present()
+        started = GLib.get_monotonic_time()
+        GLib.timeout_add(100, self._prepare_compact, compact, target, started, 0)
+
+    def _prepare_compact(self, compact, target, started, attempt):
+        if self._compact_window is not compact or self._restoring_compact:
+            return GLib.SOURCE_REMOVE
+        surface = compact.get_surface()
+        actual = get_window_geometry(surface) if surface else None
+        elapsed_ms = (GLib.get_monotonic_time() - started) / 1000
+        if not self._position_matches(actual, target, 28):
+            if surface:
+                move_window(surface, *target)
+            if attempt >= 25:
+                # Never show a misplaced handle or hide the original note.
+                self._compact_window = None
+                self._compact_closing = True
+                compact.close()
+                self._compact_closing = False
+                return GLib.SOURCE_REMOVE
+            GLib.timeout_add(120, self._prepare_compact,
+                             compact, target, started, attempt + 1)
+            return GLib.SOURCE_REMOVE
+
+        if elapsed_ms < 500:
+            GLib.timeout_add(120, self._prepare_compact,
+                             compact, target, started, attempt + 1)
+            return GLib.SOURCE_REMOVE
+        # No visible trip via the desktop center.
+        self.set_visible(False)
+        compact.set_opacity(1.0)
+        return GLib.SOURCE_REMOVE
 
     def _on_compact_mapped(self, window):
         GLib.timeout_add(250, self._keep_window_above, window)
 
     def _on_compact_close_requested(self, compact):
         if not self._compact_closing and self._compact_window is compact:
-            # Even an external close request must not strand a hidden note.
             self._compact_window = None
+            self._restoring_compact = False
+            self.set_opacity(1.0)
             self.present()
         return False
 
@@ -251,121 +307,64 @@ xlib.XCloseDisplay(dpy)
         compact = self._compact_window
         if compact is None or self._restoring_compact:
             return
+        # Keep the handle visible. Re-map the full note in an invisible
+        # state, settle Mutter's placement while it cannot be seen, then
+        # switch both surfaces in a single main-loop callback.
         self._restoring_compact = True
-        # Do NOT set the full editor transient-for the compact handle.
-        # GNOME Mutter can recenter the editor when this relationship is
-        # removed a moment after expansion.
+        self.set_opacity(0.0)
         self.present()
-        GLib.timeout_add(180, self._finish_restore_near_handle, compact, 0)
+        self._restore_watch_serial += 1
+        token = self._restore_watch_serial
+        started = GLib.get_monotonic_time()
+        GLib.timeout_add(100, self._prepare_expanded,
+                         compact, started, token, 0, None)
 
-    def _finish_restore_near_handle(self, compact, attempt):
-        if self._compact_window is not compact:
-            self._restoring_compact = False
-            return GLib.SOURCE_REMOVE
-        surface = self.get_surface()
-        handle_surface = compact.get_surface()
-        handle = get_window_geometry(handle_surface) if handle_surface else None
-        if (surface is None or handle is None) and attempt < 10:
-            GLib.timeout_add(100, self._finish_restore_near_handle,
-                             compact, attempt + 1)
+    def _prepare_expanded(self, compact, started, token, attempt, target):
+        if (self._compact_window is not compact or
+                token != self._restore_watch_serial):
             return GLib.SOURCE_REMOVE
 
-        if surface is not None and handle is not None:
-            display = self.get_display()
-            monitors = []
-            if display is not None:
-                model = display.get_monitors()
-                for i in range(model.get_n_items()):
-                    geo = model.get_item(i).get_geometry()
-                    monitors.append((geo.x, geo.y, geo.width, geo.height))
+        source_surface = compact.get_surface()
+        target_surface = self.get_surface()
+        handle_geo = get_window_geometry(source_surface) if source_surface else None
+        if target is None and handle_geo is not None:
             size = self._expanded_size or (440, 500)
-            x, y = restore_position(handle, size, monitors)
-            self._restore_target = (x, y)
-            # EWMH is applied by the window manager asynchronously.
-            move_window(surface, x, y)
-            GLib.timeout_add(250, self._verify_restore_position,
-                             compact, (x, y), 0)
-        else:
-            # A native Wayland window cannot be positioned by an application.
-            self._finish_compact_restore(compact)
-        return GLib.SOURCE_REMOVE
+            target = restore_position(handle_geo, size, self._note_monitors())
+        actual = get_window_geometry(target_surface) if target_surface else None
+        elapsed_ms = (GLib.get_monotonic_time() - started) / 1000
 
-    def _verify_restore_position(self, compact, target, attempt):
-        if self._compact_window is not compact:
-            return GLib.SOURCE_REMOVE
-        surface = self.get_surface()
-        actual = get_window_geometry(surface) if surface else None
-        if actual is not None:
-            if abs(actual[0] - target[0]) <= 32 and abs(actual[1] - target[1]) <= 32:
-                self._finish_compact_restore(compact)
+        if target is not None and target_surface is not None:
+            if not self._position_matches(actual, target, 32):
+                # Mutter may move a newly mapped window while settling.
+                # Perform every corrective move BEFORE the note is visible.
+                if not move_window(target_surface, *target):
+                    move_window_direct(target_surface, *target)
+            elif elapsed_ms >= 2700:
+                self._commit_expanded(compact)
                 return GLib.SOURCE_REMOVE
 
-        if surface is not None and attempt < 3:
-            # Mutter may move a just-remapped window again. First retry the
-            # EWMH request, then use plain XMoveWindow as a last resort.
-            if attempt < 2:
-                move_window(surface, *target)
-            else:
-                move_window_direct(surface, *target)
-            GLib.timeout_add(250, self._verify_restore_position,
-                             compact, target, attempt + 1)
-        else:
-            self._finish_compact_restore(compact)
+        if attempt >= 45:
+            # Fallback: reveal once wherever the WM finally put the window.
+            # Never show the user a visible reposition animation.
+            self._commit_expanded(compact)
+            return GLib.SOURCE_REMOVE
+        GLib.timeout_add(120, self._prepare_expanded,
+                         compact, started, token, attempt + 1, target)
         return GLib.SOURCE_REMOVE
 
-    def _finish_compact_restore(self, compact):
+    def _commit_expanded(self, compact):
         if self._compact_window is not compact:
-            self._restoring_compact = False
             return
+        # The full window was positioned transparently while still mapped.
+        # No post-reveal movement timer is scheduled.
         self._compact_window = None
+        self._restoring_compact = False
+        self.set_opacity(1.0)
         self._compact_closing = True
         try:
             compact.close()
         finally:
             self._compact_closing = False
-            self._restoring_compact = False
-
-        # The popup has gone away and the editor is now a standalone window.
-        # Mutter may perform a *later* placement change after its initial map.
-        # Only check for a window-manager-style recenter for a few seconds;
-        # never keep an ongoing timer that fights normal user window movement.
-        target = self._restore_target
-        if target is not None:
-            serial = self._restore_watch_serial
-            GLib.timeout_add(450, self._watch_restore_position,
-                             target, serial, 0)
-
-    def _watch_restore_position(self, target, serial, check):
-        if (serial != self._restore_watch_serial
-                or self._compact_window is not None
-                or not self.get_visible()):
-            return GLib.SOURCE_REMOVE
-        surface = self.get_surface()
-        current = get_window_geometry(surface) if surface else None
-        if current is not None:
-            dx = abs(current[0] - target[0])
-            dy = abs(current[1] - target[1])
-            if dx > 55 or dy > 55:
-                # Only repair a placement matching the monitor's center;
-                # don't snap a window back if the user deliberately dragged
-                # the newly expanded note elsewhere.
-                display = self.get_display()
-                monitors = []
-                if display:
-                    model = display.get_monitors()
-                    for i in range(model.get_n_items()):
-                        rect = model.get_item(i).get_geometry()
-                        monitors.append((rect.x, rect.y,
-                                         rect.width, rect.height))
-                from betternotes.x11_position import looks_wm_centered
-                if looks_wm_centered(current, monitors, target):
-                    if not move_window(surface, *target):
-                        move_window_direct(surface, *target)
-        # Check after the ~2-second Mutter placement, then stop by ~4 seconds.
-        if check < 3:
-            GLib.timeout_add(950, self._watch_restore_position,
-                             target, serial, check + 1)
-        return GLib.SOURCE_REMOVE
 
     def _build_ui(self):
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
