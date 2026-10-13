@@ -4,7 +4,7 @@ from betternotes.application import BetterNotesApp
 from betternotes.note_window import NoteWindow
 from betternotes.plan import parse_items
 from betternotes.preferences import PreferencesWindow
-from betternotes.x11_position import get_window_geometry, move_window_direct, restore_position
+from betternotes.x11_position import get_window_geometry, move_window_direct, restore_position, compact_position
 from gi.repository import Pango, GLib
 import time
 
@@ -102,73 +102,103 @@ assert window._plan_widgets[window._plan_items[-1]['id']][1].get_visible()
 window._plan_finish_edit(None, window._plan_items[-1]['id'])
 assert wait_for(lambda: len(window._plan_items) == 3)
 
-# The compact handle is a separate undecorated window with X11 topmost
-# handled by the original EWMH mechanism, preserving the original editor.
+# Atomic compact handoff: both windows exist temporarily, but the
+# incoming one must have opacity zero until it has the correct position.
 settings = app._get_settings()
 settings.set_string('compact-shape', 'ball')
+window.present()
+assert wait_for(lambda: get_window_geometry(window.get_surface()) is not None)
+move_window_direct(window.get_surface(), 220, 150)
+assert wait_for(lambda: (
+    (geo := get_window_geometry(window.get_surface())) is not None
+    and abs(geo[0] - 220) < 35 and abs(geo[1] - 150) < 35
+))
+initial_note = get_window_geometry(window.get_surface())
 window._collapse_to_compact()
 assert window._compact_window is not None
-assert window._compact_window._shape == 'ball'
-assert wait_for(lambda: get_window_geometry(window._compact_window.get_surface()) is not None)
-# Simulate moving the handle to a different single-screen coordinate.
-move_window_direct(window._compact_window.get_surface(), 260, 190)
-assert wait_for(lambda: (
-    (geo := get_window_geometry(window._compact_window.get_surface())) is not None
-    and abs(geo[0] - 260) < 35 and abs(geo[1] - 190) < 35
-))
-expected_handle = get_window_geometry(window._compact_window.get_surface())
-assert not window.get_visible()
-window._restore_from_compact()
-assert wait_for(lambda: window._compact_window is None, seconds=6)
-assert window.get_visible()
-# Under a real X11 WM the expanded editor must be placed near the handle,
-# not remain centered on the virtual display.
-actual = get_window_geometry(window.get_surface())
-assert actual is not None
+ball = window._compact_window
+assert ball._shape == 'ball'
+assert ball.get_opacity() == 0.0
+assert window.get_visible(), 'Original note must stay visible during positioning'
+assert wait_for(lambda: not window.get_visible(), seconds=6)
+assert ball.get_opacity() == 1.0
+ball_geo = get_window_geometry(ball.get_surface())
+assert ball_geo is not None
 monitors = []
-model = app.get_active_window().get_display().get_monitors()
+model = window.get_display().get_monitors()
 for ix in range(model.get_n_items()):
     geo = model.get_item(ix).get_geometry()
     monitors.append((geo.x, geo.y, geo.width, geo.height))
-goal = restore_position(expected_handle, window._expanded_size, monitors)
-assert abs(actual[0] - goal[0]) <= 75, (actual, goal, expected_handle)
-assert abs(actual[1] - goal[1]) <= 75, (actual, goal, expected_handle)
+ball_target = compact_position(initial_note, (58, 58), monitors)
+assert abs(ball_geo[0] - ball_target[0]) <= 35, (ball_geo, ball_target)
+assert abs(ball_geo[1] - ball_target[1]) <= 35, (ball_geo, ball_target)
 
-# Simulate GNOME's *delayed* recenter, after the initial successful restore.
-# Previous tests only checked the first second and missed exactly this bug.
+# Move the handle. Expanded window stays invisible while the WM places it.
+move_window_direct(ball.get_surface(), 380, 230)
+assert wait_for(lambda: (
+    (geo := get_window_geometry(ball.get_surface())) is not None
+    and abs(geo[0] - 380) < 35 and abs(geo[1] - 230) < 35
+))
+moved_handle = get_window_geometry(ball.get_surface())
+expanded_goal = restore_position(moved_handle, window._expanded_size, monitors)
+window._restore_from_compact()
+assert window.get_opacity() == 0.0, 'Editor must not appear at the center'
+assert ball.get_visible()
+
+# Reproduce Mutter recentering 1.6s after remapping, before reveal.
 recentered = [False]
 def simulate_late_recenter():
+    assert window.get_opacity() == 0.0
     surface = window.get_surface()
     geo = get_window_geometry(surface)
-    monitor = monitors[0]
-    x = round(monitor[0] + (monitor[2] - geo[2]) / 2)
-    y = round(monitor[1] + (monitor[3] - geo[3]) / 2)
-    recentered[0] = move_window_direct(surface, x, y)
+    mon = monitors[0]
+    cx = round(mon[0] + (mon[2] - geo[2]) / 2)
+    cy = round(mon[1] + (mon[3] - geo[3]) / 2)
+    recentered[0] = move_window_direct(surface, cx, cy)
     return GLib.SOURCE_REMOVE
 
-GLib.timeout_add(1600, simulate_late_recenter)
-pump_for(3.6)
-assert recentered[0], 'Delayed recenter was not injected'
-late = get_window_geometry(window.get_surface())
-assert late is not None
-assert abs(late[0] - goal[0]) <= 75, (late, goal)
-assert abs(late[1] - goal[1]) <= 75, (late, goal)
+GLib.timeout_add(1500, simulate_late_recenter)
+assert wait_for(lambda: window._compact_window is None, seconds=8)
+assert recentered[0], 'The delayed recenter scenario was not simulated'
+assert window.get_opacity() == 1.0
+actual = get_window_geometry(window.get_surface())
+assert actual is not None
+assert abs(actual[0] - expanded_goal[0]) <= 75, (actual, expanded_goal)
+assert abs(actual[1] - expanded_goal[1]) <= 75, (actual, expanded_goal)
+# There should be no user-visible correction timer after expansion.
+assert not hasattr(window, '_watch_restore_position')
+pump_for(1.2)
+stable = get_window_geometry(window.get_surface())
+assert abs(stable[0] - expanded_goal[0]) <= 75, (stable, expanded_goal)
+assert abs(stable[1] - expanded_goal[1]) <= 75, (stable, expanded_goal)
 
 settings.set_string('compact-shape', 'pill')
+# Fold in the new location, not the original creation location.
+before_pill = get_window_geometry(window.get_surface())
 window._collapse_to_compact()
-assert window._compact_window._shape == 'pill'
+pill = window._compact_window
+assert pill is not None and pill._shape == 'pill'
+assert wait_for(lambda: not window.get_visible(), seconds=6)
+pill_pos = get_window_geometry(pill.get_surface())
+pill_goal = compact_position(before_pill, (188, 46), monitors)
+assert abs(pill_pos[0] - pill_goal[0]) <= 35, (pill_pos, pill_goal)
+assert abs(pill_pos[1] - pill_goal[1]) <= 35, (pill_pos, pill_goal)
 window._restore_from_compact()
-assert wait_for(lambda: window._compact_window is None, seconds=6)
-assert window.get_visible()
+assert wait_for(lambda: window._compact_window is None, seconds=8)
+assert window.get_opacity() == 1.0
 
 legacy = app.store.create_note(title='Old note', kind='note')
 note_window = NoteWindow(application=app, note=legacy)
 assert hasattr(note_window, '_text_view')
 note_window._save_note()
+note_window.present()
+assert wait_for(lambda: get_window_geometry(note_window.get_surface()) is not None)
 note_window._collapse_to_compact()
 assert note_window._compact_window is not None
+assert wait_for(lambda: not note_window.get_visible(), seconds=6)
 note_window._restore_from_compact()
-assert wait_for(lambda: note_window._compact_window is None, seconds=6)
+assert wait_for(lambda: note_window._compact_window is None, seconds=8)
+assert note_window.get_opacity() == 1.0
 
 # Global typography changes should affect already-open editor windows.
 settings = app._get_settings()

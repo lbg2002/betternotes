@@ -1,11 +1,29 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Position must track where the handle is *now*, on either monitor."""
 import unittest
-from betternotes.x11_position import restore_position, looks_wm_centered
+from betternotes.x11_position import restore_position, compact_position, looks_wm_centered
 
 
 class RestorePositionTests(unittest.TestCase):
     monitors = [(0, 0, 1080, 1920), (1080, 0, 2560, 1440)]
+
+    def test_compact_ball_tracks_source_note(self):
+        first = compact_position((120, 80, 440, 500), (58, 58), self.monitors)
+        second = compact_position((590, 450, 440, 500), (58, 58), self.monitors)
+        self.assertEqual(first, (132, 92))
+        self.assertEqual(second, (602, 462))
+
+    def test_compact_pill_secondary_monitor(self):
+        pos = compact_position((3200, 1300, 440, 500), (188, 46), self.monitors)
+        self.assertGreaterEqual(pos[0], 1080)
+        self.assertLessEqual(pos[0] + 188, 3640)
+        self.assertLessEqual(pos[1] + 46, 1440)
+
+    def test_compact_from_negative_monitor(self):
+        screens = [(-1920, 0, 1920, 1080), (0, 0, 2560, 1440)]
+        x, y = compact_position((-1800, 120, 440, 500), (188, 46), screens)
+        self.assertLess(x, 0)
+        self.assertEqual((x, y), (-1788, 132))
 
     def test_left_monitor_near_top(self):
         self.assertEqual(

@@ -9,6 +9,29 @@ import ctypes
 import ctypes.util
 
 
+def compact_position(note, compact_size, monitors):
+    """Place a collapsed handle beside the original note's top-left corner.
+
+    Both rectangles use X11 root coordinates. This intentionally does not
+    restore the last handle location or choose the desktop center.
+    """
+    x, y, width, height = note
+    cw, ch = compact_size
+    # Slight inset keeps the handle close to the note's original header.
+    px, py = x + 12, y + 12
+    if not monitors:
+        return round(px), round(py)
+    cx, cy = x + width / 2, y + height / 2
+    def distance(rect):
+        mx, my, mw, mh = rect
+        dx = max(mx - cx, 0, cx - (mx + mw))
+        dy = max(my - cy, 0, cy - (my + mh))
+        return dx * dx + dy * dy
+    mx, my, mw, mh = min(monitors, key=distance)
+    return (round(max(mx, min(px, mx + mw - min(cw, mw)))),
+            round(max(my, min(py, my + mh - min(ch, mh)))))
+
+
 def restore_position(handle, expanded, monitors):
     """Place expanded top edge near the handle, safely within one monitor.
 
