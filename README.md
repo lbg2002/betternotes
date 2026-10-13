@@ -4,31 +4,36 @@
 
 **把想法贴在桌面，把计划逐项完成。**
 
-**v0.4.6 轻快版（候选）：** 应用户反馈，取消折叠/展开的坐标定位、透明窗口等待和多次位置纠正。点击立即隐藏原便签并显示小球，点击小球立即恢复完整便签；完整窗口由 GNOME 自行布局，通常位于屏幕中央，但不同桌面环境位置由窗口管理器决定。小球仍可拖动，形状、颜色与置顶逻辑保持不变。仅给小球加入约 100ms 的轻微外观动画，不阻塞操作。
+轻量、离线、中文友好的 Linux 桌面便签与计划清单工具。  
+*Lightweight, local-first sticky notes and checklists for Linux.*
 
-<details>
-<summary>历史版本更新说明</summary>
-
-**v0.4.5 交互修复候选：** 小球/圆角长条现在先在不可见状态下定位到当前便签旁，再切换显示；从小球展开时完整窗口也先在不可见状态下完成定位与窗口管理器稳定等待，之后才显示，不再让用户看到居中→微调的跳跃。预计展开会多等待约 2–3 秒。旧有计划、字体、置顶与自动保存保留；真实 GNOME 50 / XWayland 尚待本机验证。
-
-**v0.4.4 修复候选：** 修复点击浮动小球展开后短暂定位正确、约两秒又回到屏幕中央的问题。去除可能导致 Mutter 再定位的临时窗口关联，并对晚于展开动作的自动居中进行短时识别与纠正；新增模拟延迟居中的 X11 图形回归测试。不会长期锁定窗口位置。\n\n**v0.4.3 修复版：** 新建空白计划时自动使用「新建计划」标题；连续点击添加按钮不会重复创建空白编辑行，延后删除控件以规避 GTK 事件重入；浮动小球展开改用 WM 可识别的 EWMH 定位请求并检测实际窗口坐标。当前作为 RC 候选版等待 GNOME 50 本机确认。\n\n**v0.4.2 正式版更新：** 计划任务紧随标题显示；“已完成 x/y”、进度条和折叠完成项图标移到窗口底部。点击浮动小球或长条展开时，窗口尽量在**浮动窗所在显示器及当前位置附近**恢复，靠近边缘会自动约束位置。DEB 正式更名为 `pinplan-notes`，升级保留现有数据。\n\n**v0.4.1 更新：** 普通便签与计划都可点击标题栏颜色图标旁的折叠按钮，缩成始终置顶、可拖动的小圆球或圆角长条；点击可展开。首选项可选折叠形状。计划新增完成进度条、Enter 连续录入、撤销删除。\n\n**v0.4 更新：在主界面「首选项 → 字体与字号」中选择电脑已安装的字体、调整 10–32 px 字号，普通便签、计划清单及预览会实时同步，支持恢复系统默认。**
-
-v0.3 的极简计划、拖拽排序、完成项折叠、模板、到期提醒和备份功能全部保留。
-
-</details>
-
-*A lightweight pinned notes & checklist app for Linux.*
-
-![GTK4](https://img.shields.io/badge/UI-GTK4%20%2B%20Libadwaita-blue)
-![Linux](https://img.shields.io/badge/Platform-Linux-orange)
+![Release](https://img.shields.io/badge/Release-v0.4.6-stable?color=1a9d72)
+![Linux](https://img.shields.io/badge/Linux-Ubuntu%20%2F%20Debian-informational)
+![Toolkit](https://img.shields.io/badge/GTK4-Libadwaita-blue)
+![Languages](https://img.shields.io/badge/Languages-简体中文%20%7C%20English-blueviolet)
 ![License](https://img.shields.io/badge/License-GPL--3.0--or--later-green)
-![Languages](https://img.shields.io/badge/Languages-简体中文%20%7C%20English-brightgreen)
 
-[下载安装](https://github.com/lbg2002/betternotes/releases) · [使用方法](#快速上手) · [English](#english-quick-start)
+[**下载 v0.4.6 正式版**](https://github.com/lbg2002/betternotes/releases/tag/v0.4.6) · [界面预览](#界面预览) · [功能](#核心功能) · [安装](#下载与安装) · [English](#english-quick-start)
 
 </div>
 
-> **关于项目**：PinPlan Notes（中文名「轻笺」）是基于 [0xpaperhead/BetterNotes](https://github.com/0xpaperhead/betternotes) 的社区分支，保留上游 GPL-3.0-or-later 许可和原作者署名。它不是官方 BetterNotes 发布版本。为避免破坏已有安装，内部应用 ID、数据目录与 Debian 包名暂沿用 BetterNotes；**品牌名称变化不要求迁移旧数据库**。
+> **v0.4.6 正式稳定版**：依据 Ubuntu 26.04 GNOME 桌面的实际使用反馈，取消折叠/展开时的复杂坐标定位和等待，恢复点击即切换的小圆球/圆角长条模式。窗口展开位置交给桌面窗口管理器决定。其余计划、便签、字体、搜索与备份功能保持兼容。
+
+## 界面预览
+
+以下截图来自实际运行的 PinPlan Notes（已适度压缩为 WebP）。
+
+| 便签管理主界面 | 计划清单 |
+|:--:|:--:|
+| <img src="assets/screenshots/home.webp" alt="PinPlan Notes 便签管理主界面" width="520"> | <img src="assets/screenshots/plan.webp" alt="PinPlan Notes 每日计划清单" width="380"> |
+| **主界面：** 彩色便签、计划卡片、搜索和回收站 | **计划模式：** 拖拽排序、勾选、进度与悬浮加号 |
+
+| 普通便签 | 首选项 |
+|:--:|:--:|
+| <img src="assets/screenshots/note.webp" alt="PinPlan Notes 普通便签窗口" width="380"> | <img src="assets/screenshots/preferences.webp" alt="PinPlan Notes 外观与折叠形状设置" width="380"> |
+| **便签模式：** 编辑文字、颜色与标签 | **偏好设置：** 语言、字体、字号和折叠外观 |
+
+> **项目来源与许可：** PinPlan Notes（轻笺）基于 [0xpaperhead/BetterNotes](https://github.com/0xpaperhead/betternotes) 开源项目开发，遵守 GPL-3.0-or-later，并保留原项目及贡献者的版权署名。这是非官方的社区增强版本；Debian 包名称现为 `pinplan-notes`，为了兼容旧版，内部应用 ID 和数据目录仍沿用上游命名。
 
 ## 为什么做「轻笺」
 
@@ -62,23 +67,25 @@ v0.3 的极简计划、拖拽排序、完成项折叠、模板、到期提醒和
 
 ## 快速上手
 
-### 1. 下载与安装
+### 下载与安装
 
-前往 [GitHub Releases](https://github.com/lbg2002/betternotes/releases)，下载最新稳定版的 `pinplan-notes_*.deb`（适合 Ubuntu/Debian 的轻量包），然后运行：
+打开 [v0.4.6 正式版 Release](https://github.com/lbg2002/betternotes/releases/tag/v0.4.6)，下载 **`pinplan-notes_0.4.6_all.deb`**，然后在下载目录运行：
 
 ```bash
-sudo apt install ./pinplan-notes_*.deb
+sudo apt install ./pinplan-notes_0.4.6_all.deb
 ```
 
 从应用菜单搜索 **PinPlan Notes / 轻笺** 启动。
 
-v0.4.2 起 Debian 软件包名为 **`pinplan-notes`**，对之前的 `betternotes-lite` DEB 声明冲突和替换关系；通过 apt 安装时会替换旧版程序文件，原有便签数据仍保留。不需要先卸载旧版；为稳妥起见，建议先导出 JSON 备份。Snap 用户的数据目录可能不同，不会自动迁移。\n\n该 DEB **不捆绑 Python、GTK4、Libadwaita 运行库**，由 apt 按需使用系统依赖。因此 DEB 很小，**不代表装完依赖后只占几十 KB**。Ubuntu 26.04 / GNOME 50 建议先备份旧便签后升级。
+Debian 软件包名为 **`pinplan-notes`**，安装时可以替换原 `betternotes-lite` DEB。原有便签数据库保持不变；升级前建议先导出 JSON 备份。**Snap 版与 DEB 版的用户数据可能位于不同目录，不能假设自动迁移。**
 
-### 2. 普通便签模式
+该 DEB **不捆绑 Python、GTK4、Libadwaita 运行库**，由 apt 按需使用系统依赖。因此 DEB 很小，**不代表装完依赖后只占几十 KB**。Ubuntu 26.04 / GNOME 50 建议先备份旧便签后升级。
+
+### 普通便签模式
 
 点击主界面右下角 **+**，选择「新建便签」。输入标题及正文；顶部可选择颜色或标签，点击格式按钮显示/隐藏加粗、斜体等工具栏。文字会自动保存。关闭窗口并不会删除内容。
 
-### 3. 计划模式（新增）
+### 计划清单模式
 
 同样点击 **+** →「新建计划」，或按 `Ctrl+Shift+N`。
 
@@ -88,19 +95,19 @@ v0.4.2 起 Debian 软件包名为 **`pinplan-notes`**，对之前的 `betternote
 4. 底部显示「已完成 x/y」与细进度条，右侧有**眼睛图标**可以收起/展开已完成任务；已勾选项目会划线并显示灰色背景。内容、顺序及日期自动保存到本地。
 5. 可像普通便签一样修改颜色、标签和标题，窗口置顶行为保持一致。
 
-**说明**：删除单条任务可使用进度条旁出现的「撤销」按钮恢复，支持本次窗口会话最近 20 次删除（包括原顺序与截止日期）；关闭窗口后不保留单条任务的撤销历史。仍建议定期导出备份。到期提醒只在 PinPlan 正在运行时检查，默认每 15 分钟一次；关闭应用不会保留后台提醒服务。
+**说明**：删除单条任务可使用进度条旁出现的「撤销」按钮恢复，支持本次窗口会话最近 20 次删除（包括原顺序与截止日期）；关闭窗口后不保留单条任务的撤销历史。仍建议定期导出备份。到期提醒仅在 PinPlan 正在运行时检查，默认每 15 分钟一次；关闭应用不会保留后台提醒服务。
 
-### 4. 折叠小球 / 圆角长条（v0.4.2）
+### 折叠小球 / 圆角长条
 
 每张普通便签和计划窗口标题栏左上方的**调色板右侧**增加收起按钮。点击即可变成一个独立、紧凑的小窗：
 
 - 默认**小圆球**（约 58 × 58 px）；也可在**主界面 → 首选项 → 外观 → 折叠外观**选**圆角长条**（约 188 × 46 px，显示标题）。
 - **点击**小球/长条可恢复原便签编辑窗口；**拖动**可放到屏幕角落。每张便签都可以独立收起，普通便签和计划一致。
-- 收起前自动保存编辑内容；原编辑窗口保持在内存，展开时保留文本、滚动状态等。原有 XWayland 置顶逻辑继续用于浮动窗。**v0.4.6 起不再追踪小球位置**；点击后原便签立即显示，由 GNOME 决定窗口位置（一般为中央），没有等待或后续位置微调。
-- 形状选择是**全局偏好**，在下次收起时生效。关闭或退出程序后不会自动恢复收起状态；需重新打开便签。Windows 及不同 Linux 桌面环境的表现可能不同。
+- 收起前自动保存编辑内容；原编辑窗口保持在内存，展开时保留文本、滚动状态等。原有 XWayland 置顶逻辑继续用于浮动窗。**v0.4.6 起不再追踪小球位置**；点击后原便签立即显示，由窗口管理器决定位置（GNOME 通常居中），没有等待或后续位置微调。
+- 形状选择是**全局偏好**，在下次收起时生效。关闭或退出程序后不会自动恢复收起状态；需重新打开便签。不同 Linux 桌面环境的表现可能不同。
 - 圆形视觉效果需要桌面合成器支持透明窗口；GNOME/XWayland 实际圆角和跨屏移动体验建议自行验证。
 
-### 5. 计划模板与数据备份
+### 计划模板与数据备份
 
 主界面右下角 **+ → 计划模板** 可新建「每日计划」「每周计划」「学习计划」，模板只是可自由编辑的初始清单。
 
@@ -110,7 +117,7 @@ v0.4.2 起 Debian 软件包名为 **`pinplan-notes`**，对之前的 `betternote
 - 导入会先校验文件，再一次性合并记录；**已有相同 ID 的便签不会被覆盖**。请妥善保管备份，因为可能包含个人信息。
 - 导入导出使用系统文件选择窗口，不需要数据库软件；现有便签也仍然使用 SQLite 自动保存。
 
-### 6. 快捷键
+### 快捷键
 
 | 快捷键 | 功能 |
 |:--|:--|
@@ -176,7 +183,15 @@ PinPlan Notes is a small, local-first sticky notes and checklist application for
 
 Download the Debian package from [Releases](https://github.com/lbg2002/betternotes/releases) and install with `sudo apt install ./pinplan-notes_*.deb`. Use **+** to choose a sticky note or a checklist. Existing Snap installs may have separate storage; back up your notes before migrating.
 
-## 维护、反馈与致谢
+## 致谢与 AI 辅助开发
+
+PinPlan Notes 的需求设计、功能增强、交互优化、代码修改、自动化测试和 README / Release 整理工作，在开发者的指导与反复实机测试反馈下，得到了 **OpenAI GPT-6** 的辅助。
+
+> **AI-assisted development:** GPT-6 assisted with feature design, implementation, debugging, test development and documentation. The repository maintainer reviewed requirements and tested the application in real desktop environments.
+
+感谢 [BetterNotes 原作者及贡献者](https://github.com/0xpaperhead/betternotes)、GTK / GNOME 开源社区，以及提供反馈的用户。GPT-6 辅助开发并不改变原项目的许可证、作者署名或开源归属。
+
+## 维护与反馈
 
 欢迎通过 [Issues](https://github.com/lbg2002/betternotes/issues) 报告错误或提出小功能需求。请提交系统版本、桌面环境、安装方式及可复现步骤，**勿公开私人便签数据库**。
 
