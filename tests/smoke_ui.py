@@ -4,7 +4,6 @@ from betternotes.application import BetterNotesApp
 from betternotes.note_window import NoteWindow
 from betternotes.plan import parse_items
 from betternotes.preferences import PreferencesWindow
-from betternotes.x11_position import get_window_geometry, move_window_direct, restore_position, compact_position
 from gi.repository import Pango, GLib
 import time
 
@@ -102,103 +101,59 @@ assert window._plan_widgets[window._plan_items[-1]['id']][1].get_visible()
 window._plan_finish_edit(None, window._plan_items[-1]['id'])
 assert wait_for(lambda: len(window._plan_items) == 3)
 
-# Atomic compact handoff: both windows exist temporarily, but the
-# incoming one must have opacity zero until it has the correct position.
+# Immediate collapse/restore: no coordinate matching, no invisible
+# staging, and no timers that defer interaction. Both modes are regression
+# tested since GNOME users reported 2-3 second waits and visible jumps.
 settings = app._get_settings()
 settings.set_string('compact-shape', 'ball')
 window.present()
-assert wait_for(lambda: get_window_geometry(window.get_surface()) is not None)
-move_window_direct(window.get_surface(), 220, 150)
-assert wait_for(lambda: (
-    (geo := get_window_geometry(window.get_surface())) is not None
-    and abs(geo[0] - 220) < 35 and abs(geo[1] - 150) < 35
-))
-initial_note = get_window_geometry(window.get_surface())
+assert wait_for(lambda: window.get_surface() is not None)
+before = time.monotonic()
 window._collapse_to_compact()
+elapsed = time.monotonic() - before
+assert elapsed < 0.5, f'Collapse blocked for {elapsed:.3f}s'
 assert window._compact_window is not None
+assert not window.get_visible(), 'Full note should hide on first click'
 ball = window._compact_window
 assert ball._shape == 'ball'
-assert ball.get_opacity() == 0.0
-assert window.get_visible(), 'Original note must stay visible during positioning'
-assert wait_for(lambda: not window.get_visible(), seconds=6)
-assert ball.get_opacity() == 1.0
-ball_geo = get_window_geometry(ball.get_surface())
-assert ball_geo is not None
-monitors = []
-model = window.get_display().get_monitors()
-for ix in range(model.get_n_items()):
-    geo = model.get_item(ix).get_geometry()
-    monitors.append((geo.x, geo.y, geo.width, geo.height))
-ball_target = compact_position(initial_note, (58, 58), monitors)
-assert abs(ball_geo[0] - ball_target[0]) <= 35, (ball_geo, ball_target)
-assert abs(ball_geo[1] - ball_target[1]) <= 35, (ball_geo, ball_target)
-
-# Move the handle. Expanded window stays invisible while the WM places it.
-move_window_direct(ball.get_surface(), 380, 230)
-assert wait_for(lambda: (
-    (geo := get_window_geometry(ball.get_surface())) is not None
-    and abs(geo[0] - 380) < 35 and abs(geo[1] - 230) < 35
-))
-moved_handle = get_window_geometry(ball.get_surface())
-expanded_goal = restore_position(moved_handle, window._expanded_size, monitors)
-window._restore_from_compact()
-assert window.get_opacity() == 0.0, 'Editor must not appear at the center'
 assert ball.get_visible()
+assert ball.get_opacity() == 1.0
+assert not ball.get_decorated()
 
-# Reproduce Mutter recentering 1.6s after remapping, before reveal.
-recentered = [False]
-def simulate_late_recenter():
-    assert window.get_opacity() == 0.0
-    surface = window.get_surface()
-    geo = get_window_geometry(surface)
-    mon = monitors[0]
-    cx = round(mon[0] + (mon[2] - geo[2]) / 2)
-    cy = round(mon[1] + (mon[3] - geo[3]) / 2)
-    recentered[0] = move_window_direct(surface, cx, cy)
-    return GLib.SOURCE_REMOVE
-
-GLib.timeout_add(1500, simulate_late_recenter)
-assert wait_for(lambda: window._compact_window is None, seconds=8)
-assert recentered[0], 'The delayed recenter scenario was not simulated'
+before = time.monotonic()
+ball._on_clicked(None)
+elapsed = time.monotonic() - before
+assert elapsed < 0.5, f'Expand blocked for {elapsed:.3f}s'
+assert window._compact_window is None
+assert window.get_visible()
 assert window.get_opacity() == 1.0
-actual = get_window_geometry(window.get_surface())
-assert actual is not None
-assert abs(actual[0] - expanded_goal[0]) <= 75, (actual, expanded_goal)
-assert abs(actual[1] - expanded_goal[1]) <= 75, (actual, expanded_goal)
-# There should be no user-visible correction timer after expansion.
+assert not hasattr(window, '_prepare_compact')
+assert not hasattr(window, '_prepare_expanded')
 assert not hasattr(window, '_watch_restore_position')
-pump_for(1.2)
-stable = get_window_geometry(window.get_surface())
-assert abs(stable[0] - expanded_goal[0]) <= 75, (stable, expanded_goal)
-assert abs(stable[1] - expanded_goal[1]) <= 75, (stable, expanded_goal)
+assert not hasattr(window, '_finish_restore_near_handle')
 
+# Same immediate switch for the user's rounded rectangle preference.
 settings.set_string('compact-shape', 'pill')
-# Fold in the new location, not the original creation location.
-before_pill = get_window_geometry(window.get_surface())
 window._collapse_to_compact()
 pill = window._compact_window
 assert pill is not None and pill._shape == 'pill'
-assert wait_for(lambda: not window.get_visible(), seconds=6)
-pill_pos = get_window_geometry(pill.get_surface())
-pill_goal = compact_position(before_pill, (188, 46), monitors)
-assert abs(pill_pos[0] - pill_goal[0]) <= 35, (pill_pos, pill_goal)
-assert abs(pill_pos[1] - pill_goal[1]) <= 35, (pill_pos, pill_goal)
+assert not window.get_visible()
+assert pill.get_visible()
 window._restore_from_compact()
-assert wait_for(lambda: window._compact_window is None, seconds=8)
-assert window.get_opacity() == 1.0
+assert window.get_visible()
+assert window._compact_window is None
 
 legacy = app.store.create_note(title='Old note', kind='note')
 note_window = NoteWindow(application=app, note=legacy)
 assert hasattr(note_window, '_text_view')
 note_window._save_note()
 note_window.present()
-assert wait_for(lambda: get_window_geometry(note_window.get_surface()) is not None)
 note_window._collapse_to_compact()
 assert note_window._compact_window is not None
-assert wait_for(lambda: not note_window.get_visible(), seconds=6)
+assert not note_window.get_visible()
 note_window._restore_from_compact()
-assert wait_for(lambda: note_window._compact_window is None, seconds=8)
-assert note_window.get_opacity() == 1.0
+assert note_window._compact_window is None
+assert note_window.get_visible()
 
 # Global typography changes should affect already-open editor windows.
 settings = app._get_settings()
