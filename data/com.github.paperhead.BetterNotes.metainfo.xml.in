@@ -48,6 +48,9 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.4.6" date="2026-10-13">
+      <description><p>Instant collapse and restore managed by the desktop compositor, with no coordinate polling or intentional latency.</p></description>
+    </release>
     <release version="0.4.5" date="2026-10-13">
       <description><p>Stage compact and expanded windows transparently at their final positions, then switch without a visible reposition animation.</p></description>
     </release>
