@@ -415,6 +415,12 @@
     box-shadow: 0 2px 8px alpha(#000000, 0.2);
 }
 
+/* Compact handle uses cosmetic CSS only: no delayed hide/show callbacks. */
+@keyframes pinplan-handle-appear {
+    from { opacity: 0.82; }
+    to { opacity: 1; }
+}
+
 /* v0.4.1 draggable minimized note / plan window. */
 window.pinplan-compact-window,
 window.pinplan-compact-window > contents {
@@ -424,6 +430,7 @@ window.pinplan-compact-window > contents {
     padding: 0;
 }
 .pinplan-compact-handle {
+    animation: pinplan-handle-appear 100ms ease-out;
     min-width: 52px;
     min-height: 52px;
     padding: 0;
