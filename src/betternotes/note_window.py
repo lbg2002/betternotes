@@ -18,7 +18,6 @@ from betternotes.rich_text_serializer import (
 )
 from betternotes.rich_text_toolbar import RichTextToolbar
 from betternotes.plan import new_item, parse_items, serialize_items
-from betternotes.x11_position import restore_position, compact_position, get_window_geometry, move_window, move_window_direct
 
 
 
@@ -108,9 +107,6 @@ class NoteWindow(Adw.Window):
         self._updating_toolbar = False
         self._compact_window = None
         self._compact_closing = False
-        self._restoring_compact = False
-        self._restore_watch_serial = 0
-        self._restore_target = None
 
         self.set_default_size(440 if note.kind == 'plan' else 400, 500)
         self.set_title(note.title or _('Untitled Note'))
@@ -214,157 +210,54 @@ xlib.XCloseDisplay(dpy)
         return GLib.SOURCE_REMOVE
 
 
-    def _note_monitors(self):
-        display = self.get_display()
-        monitors = []
-        if display is not None:
-            model = display.get_monitors()
-            for i in range(model.get_n_items()):
-                rect = model.get_item(i).get_geometry()
-                monitors.append((rect.x, rect.y, rect.width, rect.height))
-        return monitors
-
-    @staticmethod
-    def _position_matches(window_geometry, target, tolerance=45):
-        return (window_geometry is not None
-                and abs(window_geometry[0] - target[0]) <= tolerance
-                and abs(window_geometry[1] - target[1]) <= tolerance)
-
     def _collapse_to_compact(self, button=None):
+        """Instantly replace the editor with a small draggable window.
+
+        Window placement belongs entirely to the desktop compositor. Avoid
+        X11 root geometry, retry timers, opacity staging and delayed mapping:
+        all of those introduced visible jumps and long input latency under
+        GNOME Mutter.
+        """
         if self._compact_window is not None:
             return
         if hasattr(self, '_auto_save'):
             self._auto_save.save_now()
-
-        # Source geometry MUST be read while the original note is mapped.
-        # GTK's new compact toplevel is first mapped fully transparent, then
-        # moved into place; the old note remains visible until the switch.
-        original = get_window_geometry(self.get_surface())
-        if original is None:
-            # No reliable coordinates => leave the note in place.
-            return
-        self._expanded_size = (
-            original[2] if original[2] >= 200 else (440 if self._note.kind == 'plan' else 400),
-            original[3] if original[3] >= 200 else 500,
-        )
         settings = self._app._get_settings()
         shape = settings.get_string('compact-shape') if settings else 'ball'
-        small = (58, 58) if shape == 'ball' else (188, 46)
-        target = compact_position(original, small, self._note_monitors())
-        self._compact_closing = False
-        self._restoring_compact = False
-        self._restore_watch_serial += 1
         compact = CompactNoteWindow(self, shape)
-        compact.set_opacity(0.0)
+        self._compact_closing = False
         self._compact_window = compact
         compact.connect('map', self._on_compact_mapped)
         compact.connect('close-request', self._on_compact_close_requested)
-        compact.present()
-        started = GLib.get_monotonic_time()
-        GLib.timeout_add(100, self._prepare_compact, compact, target, started, 0)
-
-    def _prepare_compact(self, compact, target, started, attempt):
-        if self._compact_window is not compact or self._restoring_compact:
-            return GLib.SOURCE_REMOVE
-        surface = compact.get_surface()
-        actual = get_window_geometry(surface) if surface else None
-        elapsed_ms = (GLib.get_monotonic_time() - started) / 1000
-        if not self._position_matches(actual, target, 28):
-            if surface:
-                move_window(surface, *target)
-            if attempt >= 25:
-                # Never show a misplaced handle or hide the original note.
-                self._compact_window = None
-                self._compact_closing = True
-                compact.close()
-                self._compact_closing = False
-                return GLib.SOURCE_REMOVE
-            GLib.timeout_add(120, self._prepare_compact,
-                             compact, target, started, attempt + 1)
-            return GLib.SOURCE_REMOVE
-
-        if elapsed_ms < 500:
-            GLib.timeout_add(120, self._prepare_compact,
-                             compact, target, started, attempt + 1)
-            return GLib.SOURCE_REMOVE
-        # No visible trip via the desktop center.
         self.set_visible(False)
-        compact.set_opacity(1.0)
-        return GLib.SOURCE_REMOVE
+        compact.present()
 
     def _on_compact_mapped(self, window):
+        # Only the _NET_WM_STATE_ABOVE hint is asynchronous; visibility and
+        # user interaction do not wait for this window-manager operation.
         GLib.timeout_add(250, self._keep_window_above, window)
 
     def _on_compact_close_requested(self, compact):
         if not self._compact_closing and self._compact_window is compact:
+            # Handle a compositor close without leaving a hidden note behind.
             self._compact_window = None
-            self._restoring_compact = False
-            self.set_opacity(1.0)
             self.present()
         return False
 
     def _restore_from_compact(self):
+        """Reveal the original editor immediately; let Mutter place it."""
         compact = self._compact_window
-        if compact is None or self._restoring_compact:
+        if compact is None:
             return
-        # Keep the handle visible. Re-map the full note in an invisible
-        # state, settle Mutter's placement while it cannot be seen, then
-        # switch both surfaces in a single main-loop callback.
-        self._restoring_compact = True
-        self.set_opacity(0.0)
-        self.present()
-        self._restore_watch_serial += 1
-        token = self._restore_watch_serial
-        started = GLib.get_monotonic_time()
-        GLib.timeout_add(100, self._prepare_expanded,
-                         compact, started, token, 0, None)
-
-    def _prepare_expanded(self, compact, started, token, attempt, target):
-        if (self._compact_window is not compact or
-                token != self._restore_watch_serial):
-            return GLib.SOURCE_REMOVE
-
-        source_surface = compact.get_surface()
-        target_surface = self.get_surface()
-        handle_geo = get_window_geometry(source_surface) if source_surface else None
-        if target is None and handle_geo is not None:
-            size = self._expanded_size or (440, 500)
-            target = restore_position(handle_geo, size, self._note_monitors())
-        actual = get_window_geometry(target_surface) if target_surface else None
-        elapsed_ms = (GLib.get_monotonic_time() - started) / 1000
-
-        if target is not None and target_surface is not None:
-            if not self._position_matches(actual, target, 32):
-                # Mutter may move a newly mapped window while settling.
-                # Perform every corrective move BEFORE the note is visible.
-                if not move_window(target_surface, *target):
-                    move_window_direct(target_surface, *target)
-            elif elapsed_ms >= 2700:
-                self._commit_expanded(compact)
-                return GLib.SOURCE_REMOVE
-
-        if attempt >= 45:
-            # Fallback: reveal once wherever the WM finally put the window.
-            # Never show the user a visible reposition animation.
-            self._commit_expanded(compact)
-            return GLib.SOURCE_REMOVE
-        GLib.timeout_add(120, self._prepare_expanded,
-                         compact, started, token, attempt + 1, target)
-        return GLib.SOURCE_REMOVE
-
-    def _commit_expanded(self, compact):
-        if self._compact_window is not compact:
-            return
-        # The full window was positioned transparently while still mapped.
-        # No post-reveal movement timer is scheduled.
         self._compact_window = None
-        self._restoring_compact = False
-        self.set_opacity(1.0)
         self._compact_closing = True
         try:
             compact.close()
         finally:
             self._compact_closing = False
+        # No position corrections after this call. With normal GNOME window
+        # placement settings, the editor can appear at screen center.
+        self.present()
 
     def _build_ui(self):
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
