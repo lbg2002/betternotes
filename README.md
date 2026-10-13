@@ -4,11 +4,18 @@
 
 **把想法贴在桌面，把计划逐项完成。**
 
+**v0.4.6 轻快版（候选）：** 应用户反馈，取消折叠/展开的坐标定位、透明窗口等待和多次位置纠正。点击立即隐藏原便签并显示小球，点击小球立即恢复完整便签；完整窗口由 GNOME 自行布局，通常位于屏幕中央，但不同桌面环境位置由窗口管理器决定。小球仍可拖动，形状、颜色与置顶逻辑保持不变。仅给小球加入约 100ms 的轻微外观动画，不阻塞操作。
+
+<details>
+<summary>历史版本更新说明</summary>
+
 **v0.4.5 交互修复候选：** 小球/圆角长条现在先在不可见状态下定位到当前便签旁，再切换显示；从小球展开时完整窗口也先在不可见状态下完成定位与窗口管理器稳定等待，之后才显示，不再让用户看到居中→微调的跳跃。预计展开会多等待约 2–3 秒。旧有计划、字体、置顶与自动保存保留；真实 GNOME 50 / XWayland 尚待本机验证。
 
 **v0.4.4 修复候选：** 修复点击浮动小球展开后短暂定位正确、约两秒又回到屏幕中央的问题。去除可能导致 Mutter 再定位的临时窗口关联，并对晚于展开动作的自动居中进行短时识别与纠正；新增模拟延迟居中的 X11 图形回归测试。不会长期锁定窗口位置。\n\n**v0.4.3 修复版：** 新建空白计划时自动使用「新建计划」标题；连续点击添加按钮不会重复创建空白编辑行，延后删除控件以规避 GTK 事件重入；浮动小球展开改用 WM 可识别的 EWMH 定位请求并检测实际窗口坐标。当前作为 RC 候选版等待 GNOME 50 本机确认。\n\n**v0.4.2 正式版更新：** 计划任务紧随标题显示；“已完成 x/y”、进度条和折叠完成项图标移到窗口底部。点击浮动小球或长条展开时，窗口尽量在**浮动窗所在显示器及当前位置附近**恢复，靠近边缘会自动约束位置。DEB 正式更名为 `pinplan-notes`，升级保留现有数据。\n\n**v0.4.1 更新：** 普通便签与计划都可点击标题栏颜色图标旁的折叠按钮，缩成始终置顶、可拖动的小圆球或圆角长条；点击可展开。首选项可选折叠形状。计划新增完成进度条、Enter 连续录入、撤销删除。\n\n**v0.4 更新：在主界面「首选项 → 字体与字号」中选择电脑已安装的字体、调整 10–32 px 字号，普通便签、计划清单及预览会实时同步，支持恢复系统默认。**
 
 v0.3 的极简计划、拖拽排序、完成项折叠、模板、到期提醒和备份功能全部保留。
+
+</details>
 
 *A lightweight pinned notes & checklist app for Linux.*
 
@@ -89,7 +96,7 @@ v0.4.2 起 Debian 软件包名为 **`pinplan-notes`**，对之前的 `betternote
 
 - 默认**小圆球**（约 58 × 58 px）；也可在**主界面 → 首选项 → 外观 → 折叠外观**选**圆角长条**（约 188 × 46 px，显示标题）。
 - **点击**小球/长条可恢复原便签编辑窗口；**拖动**可放到屏幕角落。每张便签都可以独立收起，普通便签和计划一致。
-- 收起前自动保存编辑内容；原编辑窗口保持在内存，展开时保留文本、滚动状态等。原有 XWayland 置顶逻辑继续用于浮动窗。展开时会读取**浮动窗拖动后的实际位置**，在对应显示器附近恢复原尺寸，并尽量避免超出边界；若窗口管理器不允许指定位置，则安全回退为其默认布局。
+- 收起前自动保存编辑内容；原编辑窗口保持在内存，展开时保留文本、滚动状态等。原有 XWayland 置顶逻辑继续用于浮动窗。**v0.4.6 起不再追踪小球位置**；点击后原便签立即显示，由 GNOME 决定窗口位置（一般为中央），没有等待或后续位置微调。
 - 形状选择是**全局偏好**，在下次收起时生效。关闭或退出程序后不会自动恢复收起状态；需重新打开便签。Windows 及不同 Linux 桌面环境的表现可能不同。
 - 圆形视觉效果需要桌面合成器支持透明窗口；GNOME/XWayland 实际圆角和跨屏移动体验建议自行验证。
 
@@ -158,9 +165,9 @@ PYTHONPATH=src /usr/bin/python3 -m unittest discover -s tests -v
 PinPlan Notes is a small, local-first sticky notes and checklist application for the Linux desktop, derived from BetterNotes.
 
 - **Sticky notes:** rich text, optional compact toolbar, colors, tags, full-text search, trash and automatic saving.
-- **Floating compact notes:** Collapse ordinary notes and plans into draggable always-on-top circles or rounded pills, click to restore. Choose shape in Preferences.
+- **Floating compact notes:** Collapse ordinary notes and plans into draggable always-on-top circles or rounded pills; click to restore immediately, without coordinate polling or placement delays. Choose shape in Preferences.
 - **Checklists:** tasks begin immediately under the title; completion count, progress and the icon-only completed-item toggle sit in the bottom footer. Click to edit, drag to reorder, press Enter for the next task, and undo deletion. Right-click for optional due dates.
-- **Desktop:** individual always-on-top windows through XWayland/X11, with minimized handles expanding near their current on-screen position (including secondary monitors).
+- **Desktop:** individual always-on-top windows through XWayland/X11, with instant collapse/restore and desktop-managed expanded-window placement.
 - **Typography:** live font-family and font-size (10–32px) preferences for notes, checklists and previews, with system-default reset.
 - **Localization:** Simplified Chinese, English, or system language.
 - **Templates & backups:** daily/weekly/study presets, local JSON export and additive import.
