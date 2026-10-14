@@ -1,21 +1,26 @@
 <div align="center">
 
-# PinPlan Notes · 轻笺
+# 🗒️ PinPlan Notes · 轻笺
 
-**把想法贴在桌面，把计划逐项完成。**
+**一张悬浮便签，记录灵感；一份待办清单，逐项完成。**
 
-轻量、离线、中文友好的 Linux 桌面便签与计划清单工具。  
-*Lightweight, local-first sticky notes and checklists for Linux.*
+*An open-source sticky notes and checklist app for Ubuntu & Linux desktops.*
 
-![Release](https://img.shields.io/badge/Release-v0.4.6-stable?color=1a9d72)
-![Linux](https://img.shields.io/badge/Linux-Ubuntu%20%2F%20Debian-informational)
-![Toolkit](https://img.shields.io/badge/GTK4-Libadwaita-blue)
-![Languages](https://img.shields.io/badge/Languages-简体中文%20%7C%20English-blueviolet)
-![License](https://img.shields.io/badge/License-GPL--3.0--or--later-green)
+[![Latest Release](https://img.shields.io/github/v/release/lbg2002/betternotes?label=Release&color=559c82)](https://github.com/lbg2002/betternotes/releases/latest)
+![Desktop](https://img.shields.io/badge/Desktop-Ubuntu%20%7C%20GNOME-5479b9)
+![GTK4](https://img.shields.io/badge/UI-GTK4%20%2B%20Libadwaita-977ed4)
+![Privacy](https://img.shields.io/badge/Storage-Offline%20SQLite-2a9789)
+![License](https://img.shields.io/badge/License-GPL--3.0--or--later-7e8a98)
 
-[**下载 v0.4.6 正式版**](https://github.com/lbg2002/betternotes/releases/tag/v0.4.6) · [界面预览](#界面预览) · [功能](#核心功能) · [安装](#下载与安装) · [English](#english-quick-start)
+**[⬇ 直接下载 v0.4.6 · Ubuntu / Debian DEB](https://github.com/lbg2002/betternotes/releases/download/v0.4.6/pinplan-notes_0.4.6_all.deb)**
+
+[🖼️ 界面预览](#界面预览) · [✨ 功能](#核心功能) · [🚀 使用指南](#快速上手) · [🌍 English](#english-quick-start)
 
 </div>
+
+| 🗂️ **普通便签** | ☑️ **计划清单** | 🫧 **悬浮小球** | 🔐 **离线保存** |
+| :---: | :---: | :---: | :---: |
+| 颜色、标签、富文本、搜索 | 拖动排序、完成进度、截止日期 | 单击收起或展开，随手放在桌面角落 | SQLite 本地数据，JSON 备份，无需注册 |
 
 > **v0.4.6 正式稳定版**：依据 Ubuntu 26.04 GNOME 桌面的实际使用反馈，取消折叠/展开时的复杂坐标定位和等待，恢复点击即切换的小圆球/圆角长条模式。窗口展开位置交给桌面窗口管理器决定。其余计划、便签、字体、搜索与备份功能保持兼容。
 
@@ -34,6 +39,14 @@
 | **便签模式：** 编辑文字、颜色与标签 | **偏好设置：** 语言、字体、字号和折叠外观 |
 
 > **项目来源与许可：** PinPlan Notes（轻笺）基于 [0xpaperhead/BetterNotes](https://github.com/0xpaperhead/betternotes) 开源项目开发，遵守 GPL-3.0-or-later，并保留原项目及贡献者的版权署名。这是非官方的社区增强版本；Debian 包名称现为 `pinplan-notes`，为了兼容旧版，内部应用 ID 和数据目录仍沿用上游命名。
+
+## 🎬 三步使用
+
+1. **新建便签**：点击主界面右下角 **+ → 新建便签**，记录想法，内容自动保存。
+2. **新建计划**：选择 **+ → 新建计划**，添加待办、拖拽排序、勾选完成，查看进度。
+3. **一键折叠**：便签标题栏的收起按钮可将窗口变成小圆球或圆角长条，点击即可恢复。
+
+> 适合写作灵感、论文阅读摘录、学习待办、日常工作提醒。操作尽量留在桌面，不强制切换至任务管理平台。
 
 ## 为什么做「轻笺」
 
@@ -69,7 +82,7 @@
 
 ### 下载与安装
 
-打开 [v0.4.6 正式版 Release](https://github.com/lbg2002/betternotes/releases/tag/v0.4.6)，下载 **`pinplan-notes_0.4.6_all.deb`**，然后在下载目录运行：
+**[⬇ 下载 pinplan-notes_0.4.6_all.deb](https://github.com/lbg2002/betternotes/releases/download/v0.4.6/pinplan-notes_0.4.6_all.deb)**（[查看 Release 说明](https://github.com/lbg2002/betternotes/releases/tag/v0.4.6)），然后在下载目录运行：
 
 ```bash
 sudo apt install ./pinplan-notes_0.4.6_all.deb
