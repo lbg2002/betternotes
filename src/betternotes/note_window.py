@@ -17,6 +17,7 @@ from betternotes.rich_text_serializer import (
     _ensure_tags,
 )
 from betternotes.rich_text_toolbar import RichTextToolbar
+from betternotes.markdown_preview import render_markdown
 from betternotes.plan import new_item, parse_items, serialize_items
 
 
@@ -44,7 +45,7 @@ class CompactNoteWindow(Gtk.Window):
         button.add_css_class('pinplan-compact-handle')
         button.add_css_class('pinplan-compact-' + self._shape)
         button.add_css_class('pinplan-mini-' + original._note.color)
-        button.set_tooltip_text(_('Click to expand · drag to move'))
+        button.set_tooltip_text(_('Click to expand · right-click for main window'))
         if self._shape == 'ball':
             button.set_child(Gtk.Image.new_from_icon_name(
                 'view-list-symbolic' if original._note.kind == 'plan'
@@ -65,6 +66,14 @@ class CompactNoteWindow(Gtk.Window):
         drag.connect('drag-begin', self._on_drag_begin)
         drag.connect('drag-update', self._on_drag_update)
         button.add_controller(drag)
+        # Even when minimized to a circle, the dashboard remains reachable.
+        secondary = Gtk.GestureClick()
+        secondary.set_button(Gdk.BUTTON_SECONDARY)
+        secondary.connect('pressed', self._on_compact_secondary_click)
+        button.add_controller(secondary)
+
+    def _on_compact_secondary_click(self, gesture, n_press, x, y):
+        self._original._app.show_main_window()
 
     def _on_drag_begin(self, gesture, start_x, start_y):
         self._drag_started = False
@@ -282,6 +291,13 @@ xlib.XCloseDisplay(dpy)
         # Adjacent to the color picker for both ordinary notes and plans.
         self._header.pack_start(collapse)
 
+        # Accessible even when the dashboard was closed, in both note types.
+        home_btn = Gtk.Button(icon_name='go-home-symbolic',
+                              tooltip_text=_('Open main window'))
+        home_btn.add_css_class('flat')
+        home_btn.connect('clicked', self._open_main_window)
+        self._header.pack_start(home_btn)
+
         # Trash button
         trash_btn = Gtk.Button(
             icon_name='user-trash-symbolic',
@@ -299,6 +315,14 @@ xlib.XCloseDisplay(dpy)
         self._header.pack_end(tags_btn)
 
         if self._note.kind == 'note':
+            self._markdown_preview_button = Gtk.ToggleButton(
+                icon_name='view-reveal-symbolic',
+                tooltip_text=_('Preview Markdown'),
+            )
+            self._markdown_preview_button.add_css_class('flat')
+            self._markdown_preview_button.connect('toggled',
+                                                  self._toggle_markdown_preview)
+            self._header.pack_end(self._markdown_preview_button)
             format_btn = Gtk.Button(icon_name='format-text-bold-symbolic',
                                     tooltip_text=_('Show formatting toolbar'))
             format_btn.connect('clicked', self._toggle_format_toolbar)
@@ -338,7 +362,28 @@ xlib.XCloseDisplay(dpy)
             self._buffer.connect('changed', self._on_content_changed)
             self._buffer.connect('mark-set', self._on_cursor_moved)
             scrolled.set_child(self._text_view)
-            main_box.append(scrolled)
+            self._note_editor_scroll = scrolled
+
+            # Markdown is strictly a preview; editing and auto-save continue
+            # to use the existing rich-text buffer and JSON storage unchanged.
+            # Both views live in one Stack, without loading a web engine.
+            preview_scroll = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
+            preview = Gtk.TextView(
+                editable=False, cursor_visible=False,
+                wrap_mode=Gtk.WrapMode.WORD_CHAR,
+                left_margin=12, right_margin=12,
+                top_margin=8, bottom_margin=8,
+            )
+            preview.add_css_class('note-text-view')
+            preview.add_css_class('markdown-preview')
+            preview.set_focusable(False)
+            self._markdown_view = preview
+            preview_scroll.set_child(preview)
+            self._markdown_stack = Gtk.Stack(vexpand=True, hexpand=True)
+            self._markdown_stack.add_named(scrolled, 'source')
+            self._markdown_stack.add_named(preview_scroll, 'preview')
+            self._markdown_stack.set_visible_child_name('source')
+            main_box.append(self._markdown_stack)
 
         # Tags display bar
         self._tags_bar = Gtk.FlowBox(
@@ -351,6 +396,32 @@ xlib.XCloseDisplay(dpy)
 
         self.set_content(main_box)
 
+
+    def _open_main_window(self, button=None):
+        self._app.show_main_window()
+
+    def _toggle_markdown_preview(self, button):
+        if self._note.kind != 'note':
+            return
+        enabled = button.get_active()
+        if enabled:
+            source = self._buffer.get_text(
+                self._buffer.get_start_iter(),
+                self._buffer.get_end_iter(), True,
+            )
+            render_markdown(self._markdown_view.get_buffer(), source)
+            self._markdown_stack.set_visible_child_name('preview')
+        else:
+            self._markdown_stack.set_visible_child_name('source')
+            self._text_view.grab_focus()
+        # Markdown preview remains read-only; rich-text formatting controls
+        # are hidden while previewing and not modified in persistent settings.
+        self._toolbar.set_visible(not enabled and self._format_visible())
+        self._toolbar_sep.set_visible(not enabled and self._format_visible())
+        button.set_icon_name('document-edit-symbolic' if enabled
+                             else 'view-reveal-symbolic')
+        button.set_tooltip_text(_('Edit Markdown') if enabled
+                                else _('Preview Markdown'))
 
     def _build_plan_ui(self, parent):
         self._plan_items = []
@@ -741,6 +812,9 @@ xlib.XCloseDisplay(dpy)
         return settings.get_boolean('show-format-toolbar') if settings else False
 
     def _toggle_format_toolbar(self, button):
+        if self._markdown_preview_button.get_active():
+            # Preview never changes the rich-text source or formatting state.
+            return
         visible = not self._toolbar.get_visible()
         self._toolbar.set_visible(visible)
         self._toolbar_sep.set_visible(visible)

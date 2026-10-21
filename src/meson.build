@@ -26,6 +26,7 @@ betternotes_sources = files(
   'betternotes/plan.py',
   'betternotes/backup.py',
   'betternotes/font_settings.py',
+  'betternotes/markdown_preview.py',
 )
 
 install_data(

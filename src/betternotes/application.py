@@ -26,7 +26,7 @@ class BetterNotesApp(Adw.Application):
         'note-deleted': (GObject.SignalFlags.RUN_LAST, None, (str,)),
     }
 
-    def __init__(self, version='0.4.6', **kwargs):
+    def __init__(self, version='0.4.7', **kwargs):
         super().__init__(
             application_id=APP_ID,
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
@@ -136,12 +136,21 @@ class BetterNotesApp(Adw.Application):
         self.set_accels_for_action('app.preferences', ['<Control>comma'])
 
     def do_activate(self):
-        win = self.get_active_window()
-        if win and isinstance(win, MainWindow):
-            win.present()
-            return
+        self.show_main_window()
+
+    def show_main_window(self):
+        """Focus the existing main window or reopen it after being closed.
+
+        get_active_window() may be a pinned note or a minimized ball, so
+        inspect ALL app windows instead of constructing duplicate dashboards.
+        """
+        for win in self.get_windows():
+            if isinstance(win, MainWindow):
+                win.present()
+                return win
         win = MainWindow(application=self)
         win.present()
+        return win
 
     def open_note(self, note_id):
         from betternotes.note_window import NoteWindow

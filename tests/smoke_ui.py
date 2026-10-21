@@ -147,6 +147,49 @@ legacy = app.store.create_note(title='Old note', kind='note')
 note_window = NoteWindow(application=app, note=legacy)
 assert hasattr(note_window, '_text_view')
 note_window._save_note()
+# Pasted Markdown gets a read-only preview without converting or losing
+# the source syntax in the original rich-text JSON/SQLite persistence.
+markdown = """# 研究计划
+**重点** 和 *补充*
+- [x] 文献
+```python
+print(1)
+```"""
+note_window._buffer.set_text(markdown)
+note_window._save_note()
+source_before = app.store.get_note(legacy.id).content
+note_window._markdown_preview_button.set_active(True)
+assert note_window._markdown_stack.get_visible_child_name() == 'preview'
+preview_buffer = note_window._markdown_view.get_buffer()
+preview_text = preview_buffer.get_text(
+    preview_buffer.get_start_iter(), preview_buffer.get_end_iter(), True
+)
+assert '研究计划' in preview_text and '重点' in preview_text and '# 研究计划' not in preview_text
+assert '☑ 文献' in preview_text
+assert note_window._buffer.get_text(
+    note_window._buffer.get_start_iter(), note_window._buffer.get_end_iter(), True
+) == markdown
+note_window._save_note()
+assert app.store.get_note(legacy.id).content == source_before
+note_window._markdown_preview_button.set_active(False)
+assert note_window._markdown_stack.get_visible_child_name() == 'source'
+assert note_window._text_view.get_editable()
+
+# Closing dashboard while a sticky window remains open must not lock user out.
+from betternotes.main_window import MainWindow
+first_main = app.show_main_window()
+assert isinstance(first_main, MainWindow)
+assert app.show_main_window() is first_main, 'Should reuse an existing dashboard'
+first_main.close()
+assert wait_for(lambda: first_main not in app.get_windows())
+window._open_main_window()  # plan window home button
+reopened = [w for w in app.get_windows() if isinstance(w, MainWindow)]
+assert len(reopened) == 1
+note_window._open_main_window()  # regular note home button
+assert len([w for w in app.get_windows() if isinstance(w, MainWindow)]) == 1
+reopened[0].close()
+
+
 note_window.present()
 note_window._collapse_to_compact()
 assert note_window._compact_window is not None

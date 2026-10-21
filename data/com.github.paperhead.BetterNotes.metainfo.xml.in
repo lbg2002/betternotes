@@ -48,6 +48,9 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.4.7" date="2026-10-21">
+      <description><p>Dependency-free Markdown preview for sticky notes, with one-click access to the main window from pinned notes and plans.</p></description>
+    </release>
     <release version="0.4.6" date="2026-10-13">
       <description><p>Instant collapse and restore managed by the desktop compositor, with no coordinate polling or intentional latency.</p></description>
     </release>
