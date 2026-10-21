@@ -105,6 +105,7 @@ ZH = {
   "Show completed": "显示已完成",
   "Hide completed": "收起已完成",
   "Open main window": "打开主界面",
+  "Click to expand · right-click for main window": "点击展开 · 右键打开主界面",
   "Preview Markdown": "预览 Markdown",
   "Edit Markdown": "返回编辑",
   "Formatting": "文本格式"
