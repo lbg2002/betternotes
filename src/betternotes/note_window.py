@@ -45,7 +45,7 @@ class CompactNoteWindow(Gtk.Window):
         button.add_css_class('pinplan-compact-handle')
         button.add_css_class('pinplan-compact-' + self._shape)
         button.add_css_class('pinplan-mini-' + original._note.color)
-        button.set_tooltip_text(_('Click to expand · drag to move'))
+        button.set_tooltip_text(_('Click to expand · right-click for main window'))
         if self._shape == 'ball':
             button.set_child(Gtk.Image.new_from_icon_name(
                 'view-list-symbolic' if original._note.kind == 'plan'
@@ -66,6 +66,14 @@ class CompactNoteWindow(Gtk.Window):
         drag.connect('drag-begin', self._on_drag_begin)
         drag.connect('drag-update', self._on_drag_update)
         button.add_controller(drag)
+        # Even when minimized to a circle, the dashboard remains reachable.
+        secondary = Gtk.GestureClick()
+        secondary.set_button(Gdk.BUTTON_SECONDARY)
+        secondary.connect('pressed', self._on_compact_secondary_click)
+        button.add_controller(secondary)
+
+    def _on_compact_secondary_click(self, gesture, n_press, x, y):
+        self._original._app.show_main_window()
 
     def _on_drag_begin(self, gesture, start_x, start_y):
         self._drag_started = False
