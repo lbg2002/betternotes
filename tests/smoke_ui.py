@@ -149,8 +149,12 @@ assert hasattr(note_window, '_text_view')
 note_window._save_note()
 # Pasted Markdown gets a read-only preview without converting or losing
 # the source syntax in the original rich-text JSON/SQLite persistence.
-markdown = '# 研究计划\\n**重点** 和 *补充*\\n- [x] 文献\\n\\u0060\\u0060\\u0060python\\nprint(1)\\n\\u0060\\u0060\\u0060'
-markdown = markdown.replace('\\\\n', '\\n').replace('\\\\u0060', '`')
+markdown = """# 研究计划
+**重点** 和 *补充*
+- [x] 文献
+```python
+print(1)
+```"""
 note_window._buffer.set_text(markdown)
 note_window._save_note()
 source_before = app.store.get_note(legacy.id).content
