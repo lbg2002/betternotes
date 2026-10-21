@@ -55,7 +55,7 @@ jobs:
           mkdir -p pkg/DEBIAN
           cat > pkg/DEBIAN/control <<'CONTROL'
           Package: pinplan-notes
-          Version: 0.4.6
+          Version: 0.4.7
           Provides: betternotes-lite
           Conflicts: betternotes-lite, betternotes
           Replaces: betternotes-lite, betternotes
@@ -68,33 +68,26 @@ jobs:
           # Do not ship redundant Python bytecode, caches or dev artefacts.
           find pkg/usr -type d -name __pycache__ -prune -exec rm -rf {} +
           find pkg/usr -type f -name '*.pyc' -delete
-          dpkg-deb --build --root-owner-group pkg pinplan-notes_0.4.6_all.deb
-          dpkg-deb --info pinplan-notes_0.4.6_all.deb
+          dpkg-deb --build --root-owner-group pkg pinplan-notes_0.4.7_all.deb
+          dpkg-deb --info pinplan-notes_0.4.7_all.deb
           ls -lh *.deb
       - uses: actions/upload-artifact@v4
         with:
           name: pinplan-notes-deb
           path: '*.deb'
-      - name: Check existing v0.4.6 stable release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        id: release_check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh release view v0.4.6 >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Publish PinPlan v0.4.6 stable release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.release_check.outputs.exists == 'false'
+      - name: Publish candidate v0.4.7 for feature-branch validation
+        if: github.event_name == 'pull_request' && github.head_ref == 'feature/pinplan-v047-markdown-main-home'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.4.6
-          target_commitish: ${{ github.sha }}
-          name: PinPlan Notes v0.4.6
-          prerelease: false
+          tag_name: v0.4.7-rc1
+          target_commitish: ${{ github.event.pull_request.head.sha }}
+          name: PinPlan Notes v0.4.7 (release candidate)
+          prerelease: true
           draft: false
-          make_latest: true
-          files: pinplan-notes_0.4.6_all.deb
-          body_path: RELEASE_NOTES.md
+          files: pinplan-notes_0.4.7_all.deb
+          body: |
+            Candidate: dependency-free Markdown read-only preview for ordinary notes,
+            and home icon on all full-size note/plan windows. Right-click a collapsed
+            ball/pill to reopen the dashboard. Markdown raw source is preserved.
+            Simple GTK rendering (not a full CommonMark/HTML/LaTeX engine).
+            Please verify on GNOME 50 before a stable release.
