@@ -476,3 +476,9 @@ window.pinplan-compact-window > contents {
     min-height: 27px;
     padding: 2px;
 }
+
+/* Lightweight GTK TextView Markdown preview; typography comes from the
+ * existing global font preferences, not an extra renderer/stylesheet. */
+.markdown-preview {
+    padding: 4px 0;
+}
