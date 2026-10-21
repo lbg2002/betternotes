@@ -62,8 +62,6 @@ def parse_markdown(source):
         line = original
         style = ()
         prefix = ''
-        if line.lstrip().startswith('\\\x60\\\x60\\\x60'):
-            pass
         if re.match(r'^\s{0,3}(?:\x60{3,}|~{3,})', line):
             fenced = not fenced
             # Skip the language hint / closing fence, not the block contents.
