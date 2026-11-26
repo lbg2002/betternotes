@@ -10,11 +10,9 @@ glib-compile-schemas "$SCRIPT_DIR/data/" --targetdir="$SCRIPT_DIR/build/schemas"
 
 export GSETTINGS_SCHEMA_DIR="$SCRIPT_DIR/build/schemas"
 export PYTHONPATH="$SCRIPT_DIR/src:$PYTHONPATH"
-export GDK_BACKEND=x11
 
 exec python3 -c "
 import os, sys, signal, gi
-os.environ.setdefault('GDK_BACKEND', 'x11')
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 signal.signal(signal.SIGINT, signal.SIG_DFL)

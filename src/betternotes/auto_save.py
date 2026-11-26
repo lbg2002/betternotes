@@ -12,11 +12,26 @@ class AutoSave:
         self._save_callback = save_callback
         self._delay_ms = delay_ms
         self._timeout_id = None
+        self._paused = False
+        self._dirty = False
 
     def trigger(self):
         """Schedule a save after the debounce delay. Resets if called again."""
+        self._dirty = True
+        self._schedule()
+
+    def _schedule(self):
         self.cancel()
-        self._timeout_id = GLib.timeout_add(self._delay_ms, self._do_save)
+        if self._dirty and not self._paused:
+            self._timeout_id = GLib.timeout_add(
+                self._delay_ms, self._do_save, priority=GLib.PRIORITY_LOW,
+            )
+
+    def set_composing(self, composing):
+        if composing == self._paused:
+            return
+        self._paused = composing
+        self._schedule()
 
     def cancel(self):
         """Cancel any pending save."""
@@ -27,9 +42,11 @@ class AutoSave:
     def save_now(self):
         """Save immediately, canceling any pending debounce."""
         self.cancel()
-        self._save_callback()
+        if self._dirty:
+            self._save_callback()
+            self._dirty = False
 
     def _do_save(self):
         self._timeout_id = None
-        self._save_callback()
+        self.save_now()
         return GLib.SOURCE_REMOVE

@@ -19,6 +19,7 @@ from betternotes.font_settings import make_font_css
 class BetterNotesApp(Adw.Application):
 
     __gsignals__ = {
+        'note-content-changed': (GObject.SignalFlags.RUN_LAST, None, (str,)),
         'note-changed': (GObject.SignalFlags.RUN_LAST, None, (str,)),
         'note-created': (GObject.SignalFlags.RUN_LAST, None, (str,)),
         'note-trashed': (GObject.SignalFlags.RUN_LAST, None, (str,)),
@@ -26,7 +27,7 @@ class BetterNotesApp(Adw.Application):
         'note-deleted': (GObject.SignalFlags.RUN_LAST, None, (str,)),
     }
 
-    def __init__(self, version='0.4.7', **kwargs):
+    def __init__(self, version='0.4.8', **kwargs):
         super().__init__(
             application_id=APP_ID,
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
@@ -320,7 +321,7 @@ class BetterNotesApp(Adw.Application):
 
     def _on_preferences(self, action, param):
         from betternotes.preferences import PreferencesWindow
-        win = PreferencesWindow()
+        win = PreferencesWindow(version=self.version)
         win.present(self.get_active_window())
 
     def _on_shortcuts(self, action, param):

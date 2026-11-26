@@ -12,7 +12,7 @@
 ![Privacy](https://img.shields.io/badge/Storage-Offline%20SQLite-2a9789)
 ![License](https://img.shields.io/badge/License-GPL--3.0--or--later-7e8a98)
 
-**[⬇ 直接下载 v0.4.6 · Ubuntu / Debian DEB](https://github.com/lbg2002/betternotes/releases/download/v0.4.6/pinplan-notes_0.4.6_all.deb)**
+**[⬇ 直接下载最新版 · Ubuntu / Debian DEB](https://github.com/lbg2002/betternotes/releases/latest)**
 
 [🖼️ 界面预览](#界面预览) · [✨ 功能](#核心功能) · [🚀 使用指南](#快速上手) · [🌍 English](#english-quick-start)
 
@@ -23,6 +23,12 @@
 | 颜色、标签、富文本、搜索 | 拖动排序、完成进度、截止日期 | 单击收起或展开，随手放在桌面角落 | SQLite 本地数据，JSON 备份，无需注册 |
 
 > **v0.4.6 正式稳定版**：依据 Ubuntu 26.04 GNOME 桌面的实际使用反馈，取消折叠/展开时的复杂坐标定位和等待，恢复点击即切换的小圆球/圆角长条模式。窗口展开位置交给桌面窗口管理器决定。其余计划、便签、字体、搜索与备份功能保持兼容。
+
+## v0.4.8
+
+- 中文组词期间暂停便签自动保存，完成组词后继续。保存正文时只安排刷新便签列表。
+- 启动时使用桌面的默认显示后端。原生 Wayland 下，悬浮便签的置顶由桌面窗口管理器控制。需要保留 X11 置顶行为时，可以通过 `GDK_BACKEND=x11 betternotes` 启动。
+- 在「首选项 → 关于」查看版本、检查 GitHub 稳定版。通过 DEB 安装的用户可在应用内下载安装更新，校验后由系统请求管理员授权，完成后重新打开轻笺。
 
 ## v0.4.7 新功能（候选版）
 
@@ -90,7 +96,7 @@
 
 ### 下载与安装
 
-**[⬇ 下载 pinplan-notes_0.4.6_all.deb](https://github.com/lbg2002/betternotes/releases/download/v0.4.6/pinplan-notes_0.4.6_all.deb)**（[查看 Release 说明](https://github.com/lbg2002/betternotes/releases/tag/v0.4.6)），然后在下载目录运行：
+**[⬇ 下载 pinplan-notes_0.4.6_all.deb](https://github.com/lbg2002/betternotes/releases/latest)**（[查看 Release 说明](https://github.com/lbg2002/betternotes/releases/tag/v0.4.6)），然后在下载目录运行：
 
 ```bash
 sudo apt install ./pinplan-notes_0.4.6_all.deb

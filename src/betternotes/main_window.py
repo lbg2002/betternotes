@@ -291,11 +291,36 @@ class MainWindow(Adw.ApplicationWindow):
         return False
 
     def _connect_signals(self):
-        self._app.connect('note-changed', self._on_note_signal)
-        self._app.connect('note-created', self._on_note_signal)
-        self._app.connect('note-trashed', self._on_note_signal)
-        self._app.connect('note-restored', self._on_note_signal)
-        self._app.connect('note-deleted', self._on_note_signal)
+        self._content_refresh_id = None
+        self._note_signal_ids = [
+            self._app.connect(signal, self._on_note_signal)
+            for signal in ('note-changed', 'note-created', 'note-trashed',
+                           'note-restored', 'note-deleted')
+        ]
+        self._note_signal_ids.append(
+            self._app.connect('note-content-changed', self._on_note_content_changed),
+        )
+        self.connect('close-request', self._on_dashboard_closed)
+
+    def _on_dashboard_closed(self, window):
+        for handler_id in self._note_signal_ids:
+            self._app.disconnect(handler_id)
+        self._note_signal_ids.clear()
+        if self._content_refresh_id is not None:
+            GLib.source_remove(self._content_refresh_id)
+            self._content_refresh_id = None
+        return False
+
+    def _on_note_content_changed(self, app, note_id):
+        if self._content_refresh_id is None:
+            self._content_refresh_id = GLib.idle_add(
+                self._refresh_saved_notes, priority=GLib.PRIORITY_LOW,
+            )
+
+    def _refresh_saved_notes(self):
+        self._content_refresh_id = None
+        self._refresh_notes()
+        return GLib.SOURCE_REMOVE
 
     def _on_note_signal(self, app, note_id):
         self._refresh_notes()

@@ -22,6 +22,7 @@ betternotes_sources = files(
   'betternotes/constants.py',
   'betternotes/shortcuts.py',
   'betternotes/preferences.py',
+  'betternotes/updates.py',
   'betternotes/i18n.py',
   'betternotes/plan.py',
   'betternotes/backup.py',

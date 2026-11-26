@@ -5,6 +5,21 @@ from gi.repository import Gio
 from betternotes.constants import APP_ID
 
 ZH = {
+  "About": "关于",
+  "Current version": "当前版本",
+  "Updates": "软件更新",
+  "Check for updates": "检查更新",
+  "Install update": "安装更新",
+  "GitHub Releases": "GitHub 发布页",
+  "Checking GitHub for updates…": "正在检查 GitHub 更新…",
+  "Could not check for updates": "检查更新失败",
+  "You are up to date.": "当前已是最新版本。",
+  "Version %s is available.": "版本 %s 已发布。",
+  "Open GitHub Releases to download it.": "可前往 GitHub 发布页下载。",
+  "Downloading and installing…": "正在下载并安装更新…",
+  "Could not install the update": "安装更新失败",
+  "Update installed. Quit and reopen PinPlan.": "更新已安装，请退出并重新打开轻笺。",
+  "Installation canceled.": "安装已取消。",
   "Preferences": "首选项",
   "General": "常规",
   "Appearance": "外观",

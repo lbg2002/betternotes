@@ -20,10 +20,6 @@ locale.textdomain('betternotes')
 gettext.install('betternotes', localedir)
 
 if __name__ == '__main__':
-    # Force X11 backend so we can set always-on-top on note windows.
-    # On Wayland, this runs under XWayland transparently.
-    os.environ.setdefault('GDK_BACKEND', 'x11')
-
     import gi
 
     gi.require_version('Gtk', '4.0')

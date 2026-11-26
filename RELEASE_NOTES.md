@@ -1,3 +1,11 @@
+## PinPlan Notes v0.4.8
+
+- 改用桌面默认显示后端，减少经 XWayland 的输入链路。Wayland 下由桌面管理窗口置顶。
+- 中文组词期间暂停自动保存。编辑内容后合并便签列表刷新，避免重建标签和回收站。
+- 「首选项 → 关于」新增版本显示、GitHub 稳定版检查及 DEB 应用内更新。安装前校验 SHA-256，成功后重新打开应用。
+- 包含 v0.4.7 候选版的 Markdown 预览和返回主界面按钮。
+
+Ubuntu / Debian 用户可下载 `pinplan-notes_0.4.8_all.deb` 安装或覆盖升级。
 # PinPlan Notes · 轻笺 v0.4.6
 
 **正式稳定版 / Stable release**

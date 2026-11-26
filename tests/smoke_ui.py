@@ -3,6 +3,7 @@
 from betternotes.application import BetterNotesApp
 from betternotes.note_window import NoteWindow
 from betternotes.plan import parse_items
+from betternotes.rich_text_serializer import get_plain_text
 from betternotes.preferences import PreferencesWindow
 from gi.repository import Pango, GLib
 import time
@@ -198,10 +199,23 @@ note_window._restore_from_compact()
 assert note_window._compact_window is None
 assert note_window.get_visible()
 
+# An IME composition can outlast the autosave timeout.
+note_id = note_window._note.id
+note_window._buffer.set_text('中文输入')
+note_window._text_view.emit('preedit-changed', 'pin')
+pump_for(0.7)
+assert '中文输入' not in get_plain_text(app.store.get_note(note_id).content)
+note_window._text_view.emit('preedit-changed', '')
+assert wait_for(lambda: '中文输入' in get_plain_text(app.store.get_note(note_id).content))
+
 # Global typography changes should affect already-open editor windows.
 settings = app._get_settings()
 assert settings is not None, 'CI must expose compiled GSettings schema'
-prefs = PreferencesWindow()
+prefs = PreferencesWindow(version=app.version)
+assert prefs._check_button.get_sensitive()
+prefs._show_update((None, False))
+assert prefs._update_row.get_subtitle()
+assert not prefs._install_button.get_visible()
 assert prefs._font_button.get_font_desc() is not None
 settings.set_int('font-size', 20)
 settings.set_string('font-family', 'Noto Sans CJK SC')

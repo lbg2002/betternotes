@@ -336,6 +336,9 @@ xlib.XCloseDisplay(dpy)
         )
         self._title_entry.add_css_class('note-title-entry')
         self._title_entry.connect('changed', self._on_content_changed)
+        self._title_entry.get_delegate().connect(
+            'preedit-changed', self._on_preedit_changed,
+        )
         main_box.append(self._title_entry)
 
         if self._note.kind == 'plan':
@@ -360,6 +363,7 @@ xlib.XCloseDisplay(dpy)
             self._buffer = self._text_view.get_buffer()
             _ensure_tags(self._buffer)
             self._buffer.connect('changed', self._on_content_changed)
+            self._text_view.connect('preedit-changed', self._on_preedit_changed)
             self._buffer.connect('mark-set', self._on_cursor_moved)
             scrolled.set_child(self._text_view)
             self._note_editor_scroll = scrolled
@@ -602,6 +606,7 @@ xlib.XCloseDisplay(dpy)
             entry.set_placeholder_text(_('New task'))
             entry.set_visible(False)
             entry.connect('changed', self._plan_text_changed, uid, label)
+            entry.get_delegate().connect('preedit-changed', self._on_preedit_changed)
             entry.connect('activate', self._plan_enter, uid)
             focus = Gtk.EventControllerFocus()
             focus.connect('leave', lambda controller, key=uid: self._plan_finish_edit(None, key))
@@ -869,17 +874,21 @@ xlib.XCloseDisplay(dpy)
         if hasattr(self, '_auto_save'):
             self._auto_save.trigger()
 
+    def _on_preedit_changed(self, widget, text):
+        if hasattr(self, '_auto_save'):
+            self._auto_save.set_composing(bool(text))
+
     def _save_note(self):
         title = self._title_entry.get_text()
         content = (serialize_items(self._plan_items) if self._note.kind == 'plan'
                    else serialize_buffer(self._buffer))
+        if title == self._note.title and content == self._note.content:
+            return
+        self._app.store.update_note(self._note.id, title=title, content=content)
         self.set_title(title or _('Untitled Note'))
         self._note.title = title
         self._note.content = content
-        self._app.store.update_note(
-            self._note.id, title=title, content=content,
-        )
-        self._app.emit('note-changed', self._note.id)
+        self._app.emit('note-content-changed', self._note.id)
 
     def _on_cursor_moved(self, buffer, iter_, mark):
         if mark.get_name() == 'insert':

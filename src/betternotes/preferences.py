@@ -1,23 +1,28 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from threading import Thread
+
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 
-from gi.repository import Adw, Gio, Gtk, Pango
+from gi.repository import Adw, Gio, GLib, Gtk, Pango
 
 from betternotes.colors import COLOR_NAMES
 from betternotes.constants import APP_ID
 from betternotes.i18n import _
 from betternotes.font_settings import sanitize_family
+from betternotes import updates
 
 
 class PreferencesWindow(Adw.PreferencesDialog):
 
-    def __init__(self, **kwargs):
+    def __init__(self, version='dev', **kwargs):
         super().__init__(**kwargs)
         self.set_title(_('Preferences'))
 
+        self._version = version
+        self._latest_release = None
         self._settings = None
         self._resetting_font = False
         schema_source = Gio.SettingsSchemaSource.get_default()
@@ -25,6 +30,86 @@ class PreferencesWindow(Adw.PreferencesDialog):
             self._settings = Gio.Settings.new(APP_ID)
 
         self._build_ui()
+        self._build_about_page()
+
+    def _build_about_page(self):
+        page = Adw.PreferencesPage(title=_('About'), icon_name='help-about-symbolic')
+        group = Adw.PreferencesGroup(title='PinPlan · 轻笺')
+        group.add(Adw.ActionRow(title=_('Current version'), subtitle=self._version))
+
+        self._update_row = Adw.ActionRow(title=_('Updates'))
+        self._check_button = Gtk.Button(label=_('Check for updates'), valign=Gtk.Align.CENTER)
+        self._check_button.set_sensitive(self._version != 'dev')
+        self._check_button.connect('clicked', self._check_updates)
+        self._install_button = Gtk.Button(label=_('Install update'), valign=Gtk.Align.CENTER)
+        self._install_button.set_visible(False)
+        self._install_button.connect('clicked', self._install_update)
+        self._update_row.add_suffix(self._check_button)
+        self._update_row.add_suffix(self._install_button)
+        group.add(self._update_row)
+
+        releases = Gtk.LinkButton(uri=updates.REPOSITORY + '/releases',
+                                  label=_('GitHub Releases'), halign=Gtk.Align.START)
+        group.add(releases)
+        page.add(group)
+        self.add(page)
+
+    def _run_update_task(self, operation, complete, error_message):
+        def worker():
+            try:
+                result = operation()
+            except Exception as error:
+                GLib.idle_add(self._update_failed, error_message, str(error))
+            else:
+                GLib.idle_add(complete, result)
+
+        Thread(target=worker, daemon=True).start()
+
+    def _check_updates(self, button):
+        self._check_button.set_sensitive(False)
+        self._install_button.set_visible(False)
+        self._update_row.set_subtitle(_('Checking GitHub for updates…'))
+        self._run_update_task(self._find_update, self._show_update,
+                              _('Could not check for updates'))
+
+    def _find_update(self):
+        release = updates.check_for_update(self._version)
+        return release, release is not None and updates.can_install_update()
+
+    def _show_update(self, result):
+        self._latest_release, can_install = result
+        self._check_button.set_sensitive(True)
+        if self._latest_release is None:
+            self._update_row.set_subtitle(_('You are up to date.'))
+            return
+        label = _('Version %s is available.') % self._latest_release.version
+        if not can_install:
+            label += ' ' + _('Open GitHub Releases to download it.')
+        self._update_row.set_subtitle(label)
+        self._install_button.set_visible(can_install)
+
+    def _install_update(self, button):
+        release = self._latest_release
+        self._check_button.set_sensitive(False)
+        self._install_button.set_sensitive(False)
+        self._update_row.set_subtitle(_('Downloading and installing…'))
+        self._run_update_task(lambda: updates.install_update(release), self._update_installed,
+                              _('Could not install the update'))
+
+    def _update_installed(self, installed):
+        if installed:
+            self._update_row.set_subtitle(_('Update installed. Quit and reopen PinPlan.'))
+            self._install_button.set_visible(False)
+        else:
+            self._update_row.set_subtitle(_('Installation canceled.'))
+            self._check_button.set_sensitive(True)
+            self._install_button.set_sensitive(True)
+
+    def _update_failed(self, message, detail):
+        self._update_row.set_subtitle(message)
+        self._update_row.set_tooltip_text(detail)
+        self._check_button.set_sensitive(True)
+        self._install_button.set_sensitive(True)
 
     def _build_ui(self):
         # General page
